@@ -113,7 +113,7 @@ Because `DynamoDBKeyConverter` includes the version Id of the AWS Secrets Manage
 rotate the secret without impacting current users. See [opaque-token](opaque-token) for examples.
 
 The module also has support for HMAC generation and verification which I also use for CSRF as well.
-```json
+```go
 signer := hmac.New(hmac.WithKeyFromLambdaExtensionSecrets("my-secret-id"))
 
 // to get a stable hash (same input produces same output), pass 0 for nonce size.
