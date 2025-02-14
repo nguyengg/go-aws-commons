@@ -1,4 +1,4 @@
-# go-opaque-token
+# Convert DynamoDB last evaluated key to opaque token; create and validate CSRF tokens
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/nguyengg/go-aws-commonds/opaque-token.svg)](https://pkg.go.dev/github.com/nguyengg/go-aws-commonds/opaque-token)
 
@@ -12,7 +12,7 @@ provide a key statically, or from AWS Secrets Manager to get rotation support fo
 Get with:
 
 ```shell
-go get "github.com/nguyengg/go-aws-commons/opaque-token"
+go get github.com/nguyengg/go-aws-commons/opaque-token
 ```
 
 ### Fixed key with ChaCha20-Poly1305 or AES encryption
