@@ -1,4 +1,4 @@
-# go-aws-commons
+# go-aws-commons - JakartaCommons meets Go, for lack of better naming
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/nguyengg/go-aws-commons.svg)](https://pkg.go.dev/github.com/nguyengg/go-aws-commons)
 
@@ -27,6 +27,20 @@ This library was born out of my need to encrypt the `map[string]AttributeValue` 
 Query or Scan operations before passing it as the pagination token to the caller, though the library has grown to
 support any `[]byte` token. ChaCha20-Poly1305 (preferred) and AES with GCM encryption are available, and you can either
 provide a key statically, or from AWS Secrets Manager to get rotation support for free. See [opaque-token](opaque-token)
+for examples.
+
+## Implements io.ReadSeeker, io.ReaderAt, and io.WriterTo using S3 ranged GetObject
+
+[![Go Reference](https://pkg.go.dev/badge/github.com/nguyengg/go-aws-commons/s3reader.svg)](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/s3reader)
+
+This module provides implementations of `io.ReadSeeker`, `io.ReaderAt`, and `io.WriterTo` for S3 downloading needs. See
+[s3reader](s3reader) for examples.
+
+# Implements io.Writer and io.ReaderFrom to upload to S3
+
+[![Go Reference](https://pkg.go.dev/badge/github.com/nguyengg/go-aws-commons/s3writer.svg)](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/s3writer)
+
+This module provides implementations of `io.Writer` and `io.ReaderFrom` for S3 uploading needs. See [s3writer](s3writer)
 for examples.
 
 ## Protect EC2 instances from being scaled down while busy
