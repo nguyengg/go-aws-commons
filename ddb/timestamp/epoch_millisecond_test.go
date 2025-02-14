@@ -2,11 +2,12 @@ package timestamp
 
 import (
 	"encoding/json"
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	. "github.com/nguyengg/golambda/must"
-	"reflect"
 	"testing"
 	"time"
+
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+
+	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -16,10 +17,9 @@ const (
 
 func TestEpochMillisecond_MarshalJSON(t *testing.T) {
 	tests := []struct {
-		name    string
-		e       EpochMillisecond
-		want    []byte
-		wantErr bool
+		name string
+		e    EpochMillisecond
+		want []byte
 	}{
 		{
 			name: "marshal",
@@ -30,13 +30,8 @@ func TestEpochMillisecond_MarshalJSON(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := tt.e.MarshalJSON()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("MarshalJSON() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("MarshalJSON() got = %s, want %s", got, tt.want)
-			}
+			assert.NoError(t, err, "MarshalJSON() error = %v", err)
+			assert.Equalf(t, tt.want, got, "MarshalJSON() got = %v, want = %v", got, tt.want)
 		})
 	}
 }
@@ -46,10 +41,9 @@ func TestEpochMillisecond_UnmarshalJSON(t *testing.T) {
 		data []byte
 	}
 	tests := []struct {
-		name    string
-		args    args
-		want    time.Time
-		wantErr bool
+		name string
+		args args
+		want time.Time
 	}{
 		{
 			name: "unmarshal",
@@ -59,13 +53,10 @@ func TestEpochMillisecond_UnmarshalJSON(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			e := EpochMillisecond(time.Now())
-			if err := e.UnmarshalJSON(tt.args.data); (err != nil) != tt.wantErr {
-				t.Errorf("UnmarshalJSON() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			if !e.ToTime().Equal(tt.want) {
-				t.Errorf("got %v, want %v", e, tt.want)
-			}
+			got := EpochMillisecond(time.Now())
+			err := got.UnmarshalJSON(tt.args.data)
+			assert.NoError(t, err, "UnmarshalJSON() error = %v", err)
+			assert.Equalf(t, tt.want, got.ToTime(), "UnmarshalJSON() got = %v, want = %v", got, tt.want)
 		})
 	}
 }
@@ -86,13 +77,8 @@ func TestEpochMillisecond_MarshalDynamoDBAttributeValue(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := tt.e.MarshalDynamoDBAttributeValue()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("MarshalDynamoDBAttributeValue() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("MarshalDynamoDBAttributeValue() got = %v, want %v", got, tt.want)
-			}
+			assert.NoError(t, err, "MarshalDynamoDBAttributeValue() error = %v", err)
+			assert.Equalf(t, tt.want, got, "MarshalDynamoDBAttributeValue() got = %v, want = %v", got, tt.want)
 		})
 	}
 }
@@ -115,13 +101,10 @@ func TestEpochMillisecond_UnmarshalDynamoDBAttributeValue(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			e := EpochMillisecond(time.Now())
-			if err := e.UnmarshalDynamoDBAttributeValue(tt.args.av); (err != nil) != tt.wantErr {
-				t.Errorf("UnmarshalDynamoDBAttributeValue() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			if !e.ToTime().Equal(tt.want) {
-				t.Errorf("got %v, want %v", e, tt.want)
-			}
+			got := EpochMillisecond(time.Now())
+			err := got.UnmarshalDynamoDBAttributeValue(tt.args.av)
+			assert.NoError(t, err, "UnmarshalDynamoDBAttributeValue() error = %v", err)
+			assert.Equalf(t, tt.want, got.ToTime(), "UnmarshalDynamoDBAttributeValue() got = %v, want = %v", got, tt.want)
 		})
 	}
 }
@@ -133,23 +116,16 @@ func TestEpochMillisecond_TruncateNanosecond(t *testing.T) {
 	}
 
 	data, err := json.Marshal(EpochMillisecond(v))
-	if err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, err, "Marshal() error = %v", err)
 
 	got := EpochMillisecond(time.Time{})
-	if err := json.Unmarshal(data, &got); err != nil {
-		t.Error(err)
-	}
+	err = json.Unmarshal(data, &got)
+	assert.NoError(t, err, "Unmarshal() error = %v", err)
 
 	// got's underlying time.time is truncated to 2006-01-02T15:04:05.
-	if reflect.DeepEqual(got.ToTime(), v) {
-		t.Errorf("shouldn't be equal; got %v, want %v", got, v)
-	}
+	assert.NotEqualf(t, v, got.ToTime(), "shouldn't be equal; got %v, want %v", got, v)
 
 	// if we reset v's nano time, then they are equal.
 	v = time.Date(v.Year(), v.Month(), v.Day(), v.Hour(), v.Minute(), v.Second(), got.ToTime().Nanosecond(), v.Location())
-	if !reflect.DeepEqual(got.ToTime(), v) {
-		t.Errorf("got %#v, want %#v", got.ToTime(), v)
-	}
+	assert.Equalf(t, v, got.ToTime(), "got %#v, want %#v", got, v)
 }

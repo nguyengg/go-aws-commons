@@ -2,8 +2,9 @@ package stringset
 
 import (
 	"encoding/json"
-	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestStringSet_IsSubset(t *testing.T) {
@@ -96,13 +97,8 @@ func TestStringSet_MarshalJSON(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := json.Marshal(tt.m)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("MarshalJSON() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("MarshalJSON() got = %+v, want %+v", got, tt.want)
-			}
+			assert.NoErrorf(t, err, "MarshalJSON() error = %v, wantErr %v", err, tt.wantErr)
+			assert.Equalf(t, tt.want, got, "MarshalJSON() got = %+v, want %+v", got, tt.want)
 		})
 	}
 }
@@ -112,10 +108,9 @@ func TestStringSet_UnmarshalJSON(t *testing.T) {
 		data []byte
 	}
 	tests := []struct {
-		name    string
-		m       StringSet
-		args    args
-		wantErr bool
+		name string
+		m    StringSet
+		args args
 	}{
 		{
 			name: "unmarshal",
@@ -131,9 +126,8 @@ func TestStringSet_UnmarshalJSON(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := json.Unmarshal(tt.args.data, &tt.m); (err != nil) != tt.wantErr {
-				t.Errorf("UnmarshalJSON() error = %v, wantErr %v", err, tt.wantErr)
-			}
+			err := json.Unmarshal(tt.args.data, &tt.m)
+			assert.NoErrorf(t, err, "UnmarshalJSON() error = %v", err)
 		})
 	}
 }
@@ -243,9 +237,8 @@ func TestNew(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := New(tt.args.values); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("New() = %v, want %v", got, tt.want)
-			}
+			got := New(tt.args.values)
+			assert.Equalf(t, tt.want, got, "New() = %v, want %v", got, tt.want)
 		})
 	}
 }
@@ -287,9 +280,8 @@ func TestStringSet_Equals(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.m.Equal(tt.args.other); got != tt.want {
-				t.Errorf("Equal() = %v, want %v", got, tt.want)
-			}
+			got := tt.m.Equal(tt.args.other)
+			assert.Equalf(t, tt.want, got, "Equal() = %v, want %v", got, tt.want)
 		})
 	}
 }

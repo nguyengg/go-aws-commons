@@ -2,10 +2,10 @@ package timestamp
 
 import (
 	"encoding/json"
-	. "github.com/nguyengg/golambda/must"
-	"reflect"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 type JSONItem struct {
@@ -27,19 +27,20 @@ func TestJSON_structUsage(t *testing.T) {
 		EpochSecond:      EpochSecond(second),
 	}
 
-	want := []byte("{\"day\":\"2006-01-02\",\"timestamp\":\"2006-01-02T15:04:05.999Z\",\"epochMillisecond\":1136214245999,\"epochSecond\":1136214245}")
+	want := "{\"day\":\"2006-01-02\",\"timestamp\":\"2006-01-02T15:04:05.999Z\",\"epochMillisecond\":1136214245999,\"epochSecond\":1136214245}"
 
 	// non-pointer version.
-	if got := Must(json.Marshal(item)); !reflect.DeepEqual(got, want) {
-		t.Errorf("got %s, want %s", got, want)
-	}
-	// pointer version.
-	if got := Must(json.Marshal(&item)); !reflect.DeepEqual(got, want) {
-		t.Errorf("got %s, want %s", got, want)
-	}
+	got, err := json.Marshal(item)
+	assert.NoError(t, err)
+	assert.JSONEq(t, want, string(got))
 
-	got := JSONItem{}
-	if Must0(json.Unmarshal(want, &got)); !reflect.DeepEqual(got, item) {
-		t.Errorf("got %#v, want %#v", got, item)
-	}
+	// pointer version.
+	got, err = json.Marshal(&item)
+	assert.NoError(t, err)
+	assert.JSONEq(t, want, string(got))
+
+	newItem := JSONItem{}
+	err = json.Unmarshal([]byte(want), &newItem)
+	assert.NoError(t, err)
+	assert.Equal(t, item, newItem)
 }

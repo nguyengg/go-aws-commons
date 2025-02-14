@@ -1,11 +1,11 @@
 package timestamp
 
 import (
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	. "github.com/nguyengg/golambda/must"
-	"reflect"
 	"testing"
 	"time"
+
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -18,10 +18,9 @@ func TestDay_MarshalJSON(t *testing.T) {
 		v time.Time
 	}
 	tests := []struct {
-		name    string
-		fields  fields
-		want    []byte
-		wantErr bool
+		name   string
+		fields fields
+		want   []byte
 	}{
 		{
 			name:   "marshall success",
@@ -40,13 +39,8 @@ func TestDay_MarshalJSON(t *testing.T) {
 				v: tt.fields.v,
 			}
 			got, err := d.MarshalJSON()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("MarshalJSON() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("MarshalJSON() got = %s, want %s", got, tt.want)
-			}
+			assert.NoError(t, err, "MarshalJSON() error = %v", err)
+			assert.Equalf(t, tt.want, got, "MarshalJSON() got = %v, want = %v", got, tt.want)
 		})
 	}
 }
@@ -56,10 +50,9 @@ func TestDay_UnmarshalJSON(t *testing.T) {
 		data []byte
 	}
 	tests := []struct {
-		name    string
-		args    args
-		want    Day
-		wantErr bool
+		name string
+		args args
+		want Day
 	}{
 		{
 			name: "unmarshall success",
@@ -75,12 +68,9 @@ func TestDay_UnmarshalJSON(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := Day{}
-			if err := got.UnmarshalJSON(tt.args.data); (err != nil) != tt.wantErr {
-				t.Errorf("UnmarshalJSON() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("got %v, want %v", got, tt.want)
-			}
+			err := got.UnmarshalJSON(tt.args.data)
+			assert.NoError(t, err, "UnmarshalJSON() error = %v", err)
+			assert.Equalf(t, tt.want, got, "UnmarshalJSON() got = %v, want = %v", got, tt.want)
 		})
 	}
 }
@@ -90,10 +80,9 @@ func TestDay_MarshalDynamoDBAttributeValue(t *testing.T) {
 		v time.Time
 	}
 	tests := []struct {
-		name    string
-		fields  fields
-		want    types.AttributeValue
-		wantErr bool
+		name   string
+		fields fields
+		want   types.AttributeValue
 	}{
 		{
 			name:   "marshall success",
@@ -112,13 +101,8 @@ func TestDay_MarshalDynamoDBAttributeValue(t *testing.T) {
 				v: tt.fields.v,
 			}
 			got, err := d.MarshalDynamoDBAttributeValue()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("MarshalDynamoDBAttributeValue() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("MarshalDynamoDBAttributeValue() got = %v, want %v", got, tt.want)
-			}
+			assert.NoError(t, err, "MarshalDynamoDBAttributeValue() error = %v", err)
+			assert.Equalf(t, tt.want, got, "MarshalDynamoDBAttributeValue() got = %v, want = %v", got, tt.want)
 		})
 	}
 }
@@ -128,10 +112,9 @@ func TestDay_UnmarshalDynamoDBAttributeValue(t *testing.T) {
 		av types.AttributeValue
 	}
 	tests := []struct {
-		name    string
-		args    args
-		want    Day
-		wantErr bool
+		name string
+		args args
+		want Day
 	}{
 		{
 			name: "unmarshall success",
@@ -147,12 +130,9 @@ func TestDay_UnmarshalDynamoDBAttributeValue(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := Day{}
-			if err := got.UnmarshalDynamoDBAttributeValue(tt.args.av); (err != nil) != tt.wantErr {
-				t.Errorf("UnmarshalDynamoDBAttributeValue() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("got %v, want %v", got, tt.want)
-			}
+			err := got.UnmarshalDynamoDBAttributeValue(tt.args.av)
+			assert.NoError(t, err, "UnmarshalDynamoDBAttributeValue() error = %v", err)
+			assert.Equalf(t, tt.want, got, "UnmarshalDynamoDBAttributeValue() got = %v, want = %v", got, tt.want)
 		})
 	}
 }

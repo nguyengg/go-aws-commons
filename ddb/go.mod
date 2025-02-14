@@ -7,7 +7,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue v1.16.0
 	github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression v1.7.64
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.39.6
-	github.com/nguyengg/go-aws-commons/ddb v0.0.0-20250213234418-b974c603a916
 	github.com/stretchr/testify v1.10.0
 )
 

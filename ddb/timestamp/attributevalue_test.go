@@ -1,14 +1,21 @@
 package timestamp
 
 import (
-	"reflect"
 	"testing"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	dynamodbtypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	. "github.com/nguyengg/golambda/must"
+	"github.com/stretchr/testify/assert"
 )
+
+func Must[H any](value H, err error) H {
+	if err != nil {
+		panic(err)
+	}
+
+	return value
+}
 
 type AttributeValueItem struct {
 	Day              Day              `dynamodbav:"day"`
@@ -19,8 +26,11 @@ type AttributeValueItem struct {
 
 // TestAttributeValue_structUsage tests using all the timestamps in a struct.
 func TestAttributeValue_structUsage(t *testing.T) {
-	millisecond := Must(time.Parse(time.RFC3339, "2006-01-02T15:04:05.999Z"))
-	second := Must(time.Parse(time.RFC3339, "2006-01-02T15:04:05Z"))
+	millisecond, err := time.Parse(time.RFC3339, "2006-01-02T15:04:05.999Z")
+	assert.NoError(t, err)
+
+	second, err := time.Parse(time.RFC3339, "2006-01-02T15:04:05Z")
+	assert.NoError(t, err)
 
 	item := AttributeValueItem{
 		Day:              TruncateToStartOfDay(millisecond),
@@ -37,16 +47,17 @@ func TestAttributeValue_structUsage(t *testing.T) {
 	}
 
 	// non-pointer version.
-	if got := Must(attributevalue.MarshalMap(item)); !reflect.DeepEqual(got, want) {
-		t.Errorf("got %s, want %s", got, want)
-	}
-	// pointer version.
-	if got := Must(attributevalue.MarshalMap(&item)); !reflect.DeepEqual(got, want) {
-		t.Errorf("got %s, want %s", got, want)
-	}
+	got, err := attributevalue.MarshalMap(item)
+	assert.NoError(t, err)
+	assert.Equal(t, want, got)
 
-	got := AttributeValueItem{}
-	if Must0(attributevalue.UnmarshalMap(want, &got)); !reflect.DeepEqual(got, item) {
-		t.Errorf("got %#v, want %#v", got, item)
-	}
+	// pointer version.
+	got, err = attributevalue.MarshalMap(&item)
+	assert.NoError(t, err)
+	assert.Equal(t, want, got)
+
+	newItem := AttributeValueItem{}
+	err = attributevalue.UnmarshalMap(want, &newItem)
+	assert.NoError(t, err)
+	assert.Equal(t, item, newItem)
 }
