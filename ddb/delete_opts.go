@@ -52,12 +52,12 @@ func (o *DeleteOptions) WithReturnAllOldValues(out interface{}) *DeleteOptions {
 	return o
 }
 
-// WitReturnAllOldValuesOnConditionCheckFailure sets the
+// WithReturnAllOldValuesOnConditionCheckFailure sets the
 // [dynamodb.DeleteItemInput.ReturnValuesOnConditionCheckFailure] to "ALL_OLD" and instructs Delete to decode the
 // returned attributes to the optional out argument.
 //
 // If out is given, it must be a struct pointer that can be passed to [attributevalue.Decoder.Decode].
-func (o *DeleteOptions) WitReturnAllOldValuesOnConditionCheckFailure(out interface{}) *DeleteOptions {
+func (o *DeleteOptions) WithReturnAllOldValuesOnConditionCheckFailure(out interface{}) *DeleteOptions {
 	o.oldValuesOnConditionCheckFailure, o.ReturnValuesOnConditionCheckFailure = out, types.ReturnValuesOnConditionCheckFailureAllOld
 	return o
 }

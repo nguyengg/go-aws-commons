@@ -61,11 +61,11 @@ func (o *UpdateOptions) WithReturnValues(returnValue types.ReturnValue, out inte
 	return o
 }
 
-// WitReturnValuesOnConditionCheckFailure sets [UpdateOptions.ReturnValuesOnConditionCheckFailure] and instructs Update
+// WithReturnValuesOnConditionCheckFailure sets [UpdateOptions.ReturnValuesOnConditionCheckFailure] and instructs Update
 // to decode the returned attributes to the optional out argument.
 //
 // If out is given, it must be a struct pointer that can be passed to [attributevalue.Decoder.Decode].
-func (o *UpdateOptions) WitReturnValuesOnConditionCheckFailure(returnValues types.ReturnValuesOnConditionCheckFailure, out interface{}) *UpdateOptions {
+func (o *UpdateOptions) WithReturnValuesOnConditionCheckFailure(returnValues types.ReturnValuesOnConditionCheckFailure, out interface{}) *UpdateOptions {
 	o.ReturnValuesOnConditionCheckFailure, o.valuesOnConditionCheckFailure = returnValues, out
 	return o
 }

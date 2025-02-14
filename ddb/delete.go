@@ -19,7 +19,7 @@ import (
 //
 // A common use case for Delete is to delete and return old values of an item; pass
 // [DeleteOptions.WithReturnAllOldValues] to do so. You can also use
-// [DeleteOptions.WitReturnAllOldValuesOnConditionCheckFailure] if optimistic locking is enabled; they don't
+// [DeleteOptions.WithReturnAllOldValuesOnConditionCheckFailure] if optimistic locking is enabled; they don't
 // have to be pointers to the same struct.
 //
 // If you need to pass SDK-level options (in addition to options specified by NewManager), use
@@ -38,7 +38,7 @@ func Delete(ctx context.Context, key interface{}, optFns ...func(*DeleteOptions)
 //
 // A common use case for Delete is to delete and return old values of an item; pass
 // [DeleteOptions.WithReturnAllOldValues] to do so. You can also use
-// [DeleteOptions.WitReturnAllOldValuesOnConditionCheckFailure] if optimistic locking is enabled; they don't
+// [DeleteOptions.WithReturnAllOldValuesOnConditionCheckFailure] if optimistic locking is enabled; they don't
 // have to be pointers to the same struct.
 //
 // If you need to pass SDK-level options (in addition to options specified by NewManager), use
