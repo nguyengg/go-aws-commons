@@ -1,6 +1,6 @@
 # Convert DynamoDB last evaluated key to opaque token; create and validate CSRF tokens
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/nguyengg/go-aws-commonds/opaque-token.svg)](https://pkg.go.dev/github.com/nguyengg/go-aws-commonds/opaque-token)
+[![Go Reference](https://pkg.go.dev/badge/github.com/nguyengg/go-aws-commonds/opaque-token.svg)](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/opaque-token)
 
 This library was born out of my need to encrypt the `map[string]AttributeValue` last evaluated key from my DynamoDB
 Query or Scan operations before passing it as the pagination token to the caller, though the library has grown to
