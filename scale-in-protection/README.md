@@ -2,12 +2,8 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/nguyengg/go-aws-commons/scale-in-protection.svg)](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/scale-in-protection)
 
-Monitor workers' statuses to enable or disable instance scale-in protection accordingly.
-
-## Inspiration
-
-The need for this monitor arises
-from https://docs.aws.amazon.com/autoscaling/ec2/userguide/as-using-sqs-queue.html#scale-sqs-queue-scale-in-protection:
+Monitor workers' statuses to enable or disable instance scale-in protection accordingly. Inspired by
+https://docs.aws.amazon.com/autoscaling/ec2/userguide/as-using-sqs-queue.html#scale-sqs-queue-scale-in-protection:
 
 ```java
 while (true)

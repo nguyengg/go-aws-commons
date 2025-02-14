@@ -2,6 +2,9 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/nguyengg/go-aws-commons/metrics.svg)](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/metrics)
 
+AWS SDK Go v2 middleware to measure and emit latency and fault metrics on the AWS requests. Additionally, you can also
+emit custom metrics in JSON format which can then be parsed in CloudWatch Logs or turned into CloudWatch metrics.
+
 ## Usage
 
 Get with:
