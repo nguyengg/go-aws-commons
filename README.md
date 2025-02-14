@@ -178,3 +178,34 @@ want to disable scale-in protection to let the Auto Scaling group reclaim your i
 worker would be able to pick up the message again.
 
 See [scale-in-protection](scale-in-protection) for examples.
+
+## Subresource integrity - hash generation and verification
+
+Subresource Integrity ([SRI](https://developer.mozilla.org/en-US/docs/Web/Security/Subresource_Integrity)) is a hash
+prefixed with the hash function name. The [sri](sri) module provides functionality to generate and verify SRI hashes:
+
+```go
+// h implements hash.Hash which implements io.Writer so just pipes an entire file to it.
+h := sri.NewSha256()
+f, _ := os.Open("path/to/file")
+_, _ = f.WriteTo(h)
+_ = f.Close()
+
+// SumToString will produce a digest in format sha256-aOZWslHmfoNYvvhIOrDVHGYZ8+ehqfDnWDjUH/No9yg for example.
+h.SumToString(nil)
+
+// To verify against a set of expected hashes, pass them into NewVerifier.
+// v also implements hash.Hash so just pipes the entire file to it.
+v, _ := sri.NewVerifier(
+	"sha256-aOZWslHmfoNYvvhIOrDVHGYZ8+ehqfDnWDjUH/No9yg", 
+	"sha384-b58jhCXsokOe1Fgawf20X8djeef7qUvAp2JPo+erHsNwG0v83aN2ynVRkub0XypO", 
+	"sha512-bCYYNY2gfIMLiMWvjDU1CA6OYDyIuJECiiWczbmsgC0PwBcMmdWK/88AeGzhiPxddT6MZiivIHHDJw1QRFxLHA")
+f, _ := os.Open("path/to/file")
+_, _ = f.WriteTo(v)
+_ = f.Close()
+
+// SumAndVerify will return true if and only if the hash matches against the set of hashes passed to NewVerifier.
+if matches := v.SumAndVerify(nil); !matches {
+	// the file's content may have been corrupted.
+}
+```
