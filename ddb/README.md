@@ -8,11 +8,10 @@ a DynamoDB service call.
 ## Usage
 
 Get with:
-```shell
-go get "github.com/nguyengg/go-aws-commons/ddb"
-```
 
-## Example usage
+```shell
+go get github.com/nguyengg/go-aws-commons/ddb
+```
 
 ```go
 package main

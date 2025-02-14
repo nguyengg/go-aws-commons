@@ -28,13 +28,13 @@ want to disable scale-in protection to let the Auto Scaling group reclaim your i
 `ProcessWorkUnit(Work)` calls. Generally if your visibility timeout is low enough, this is not an issue as a different
 worker would be able to pick up the message again.
 
-## Setup
+## Usage
 
-```bash
-go get github.com/nguyengg/go-scale-in-protection
+Get with:
+
+```shell
+go get github.com/nguyengg/go-aws-commons/scale-in-protection
 ```
-
-## Example usage
 
 There is only one very simple `ScaleInProtector` struct. You can declare a dependency on the package and use it; and I
 would recommend copying, pasting, and customising it to your needs as well.
