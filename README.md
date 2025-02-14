@@ -149,9 +149,9 @@ or to memory, [s3/manager](https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/featu
 
 Similar to [s3reader](s3reader), I wrote this module when I needed a way to provide progress monitoring when uploading
 files using [s3/manager](https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/feature/s3/manager). I could have used an
-`io.TeeReader` passing an [io.Writer progressbar](https://github.com/schollz/progressbar/v3), but this will only
-accurately report progress on reading the file, not uploading the file. As a result, I wrote this module with the
-explicit goal of accurately showing upload progress. See [s3writer](s3writer) for examples.
+`io.TeeReader` passing an [io.Writer progressbar](https://github.com/schollz/progressbar), but this will only report
+progress on reading the file, not uploading the file. As a result, I wrote this module with the explicit goal of
+accurately showing upload progress. See [s3writer](s3writer) for examples.
 
 ## Protect EC2 instances from being scaled down while busy
 
