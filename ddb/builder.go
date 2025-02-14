@@ -1,4 +1,4 @@
-package ddbfns
+package ddb
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
-	"github.com/nguyengg/go-aws-commons/ddb-fns/internal"
+	"github.com/nguyengg/go-aws-commons/ddb/internal"
 )
 
 // Builder parses the attributes from DynamoDB struct tags `dynamodbav` to build DynamoDB request input parameters.

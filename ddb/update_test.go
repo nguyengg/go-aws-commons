@@ -1,4 +1,4 @@
-package ddbfns
+package ddb
 
 import (
 	"strconv"
