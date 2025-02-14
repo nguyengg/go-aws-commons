@@ -1,3 +1,3 @@
 module github.com/nguyengg/go-aws-commons
 
-go 1.23.6
+go 1.23

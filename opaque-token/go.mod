@@ -1,9 +1,10 @@
 module github.com/nguyengg/go-aws-commons/opaque-token
 
-go 1.24.0
+go 1.23
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.36.1
+	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.40.1
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.34.18
 	github.com/aws/aws-sdk-go-v2/service/ssm v1.56.12
 	github.com/stretchr/testify v1.10.0

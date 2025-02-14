@@ -1,6 +1,6 @@
 module github.com/nguyengg/go-aws-commons/scale-in-protection
 
-go 1.23.0
+go 1.23
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.31.0

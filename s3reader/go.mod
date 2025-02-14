@@ -1,6 +1,6 @@
 module github.com/nguyengg/go-aws-commons/s3reader
 
-go 1.24.0
+go 1.23
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.36.1
