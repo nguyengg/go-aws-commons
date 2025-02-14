@@ -6,22 +6,16 @@ Henry's Golang multi-module workspace containing various libraries to make using
 
 ## DynamoDB goodies
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/nguyengg/go-aws-commons/ddb.svg)](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/ddb)
-
 This package adds optimistic locking and auto-generated timestamps by modifying the expressions being created as part of
 a DynamoDB service call. See [ddb](ddb) for examples.
 
 ## Logging SDK latency metrics and other custom metrics
-
-[![Go Reference](https://pkg.go.dev/badge/github.com/nguyengg/go-aws-commons/metrics.svg)](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/metrics)
 
 AWS SDK Go v2 middleware to measure and emit latency and fault metrics on the AWS requests. Additionally, you can also
 emit custom metrics in JSON format which can then be parsed in CloudWatch Logs or turned into CloudWatch metrics. See
 [metrics](metrics) for examples.
 
 ## Convert DynamoDB last evaluated key to opaque token; create and validate CSRF tokens
-
-[![Go Reference](https://pkg.go.dev/badge/github.com/nguyengg/go-aws-commons/opaque-token.svg)](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/opaque-token)
 
 This library was born out of my need to encrypt the `map[string]AttributeValue` last evaluated key from my DynamoDB
 Query or Scan operations before passing it as the pagination token to the caller, though the library has grown to
@@ -31,21 +25,15 @@ for examples.
 
 ## Implements io.ReadSeeker, io.ReaderAt, and io.WriterTo using S3 ranged GetObject
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/nguyengg/go-aws-commons/s3reader.svg)](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/s3reader)
-
 This module provides implementations of `io.ReadSeeker`, `io.ReaderAt`, and `io.WriterTo` for S3 downloading needs. See
 [s3reader](s3reader) for examples.
 
-# Implements io.Writer and io.ReaderFrom to upload to S3
-
-[![Go Reference](https://pkg.go.dev/badge/github.com/nguyengg/go-aws-commons/s3writer.svg)](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/s3writer)
+## Implements io.Writer and io.ReaderFrom to upload to S3
 
 This module provides implementations of `io.Writer` and `io.ReaderFrom` for S3 uploading needs. See [s3writer](s3writer)
 for examples.
 
 ## Protect EC2 instances from being scaled down while busy
-
-[![Go Reference](https://pkg.go.dev/badge/github.com/nguyengg/go-aws-commons/scale-in-protection.svg)](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/scale-in-protection)
 
 Monitor workers' statuses to enable or disable instance scale-in protection accordingly. Inspired by
 https://docs.aws.amazon.com/autoscaling/ec2/userguide/as-using-sqs-queue.html#scale-sqs-queue-scale-in-protection:
