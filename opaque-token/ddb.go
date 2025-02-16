@@ -5,9 +5,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"net/http"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/nguyengg/go-aws-commons/lambda"
 	"github.com/nguyengg/go-aws-commons/opaque-token/endec"
 )
 
@@ -216,14 +216,15 @@ func WithKeyFromSecretsManager(client endec.GetSecretValueAPIClient, secretId st
 	}
 }
 
-// WithKeyFromLambdaExtensionSecrets makes the DynamoDBKeyConverter uses key from AWS Parameters and Secrets Lambda Extension
-// (https://docs.aws.amazon.com/secretsmanager/latest/userguide/retrieving-secrets_lambda.html).
+// WithKeyFromLambdaExtensionSecrets makes the DynamoDBKeyConverter uses key from AWS Parameters and Secrets Lambda
+// Extension (https://docs.aws.amazon.com/secretsmanager/latest/userguide/retrieving-secrets_lambda.html) using the
+// default client [lambda.DefaultParameterSecretsExtensionClient].
 //
 // If you want to change the encryption suite or customises the [endec.SecretsManagerEndec] further, see
 // [endec.SecretsManagerEndecOptions].
 func WithKeyFromLambdaExtensionSecrets(secretId string, optFns ...func(*endec.SecretsManagerEndecOptions)) EncryptionOption {
 	return func(opts *options) error {
-		opts.c.Endec = endec.NewSecretsManagerEndec(endec.LambdaExtensionClient{Client: &http.Client{}}, secretId, optFns...)
+		opts.c.Endec = endec.NewSecretsManagerEndec(lambda.DefaultParameterSecretsExtensionClient, secretId, optFns...)
 		return nil
 	}
 }

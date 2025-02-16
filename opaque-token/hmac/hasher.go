@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"hash"
 	"io"
-	"net/http"
 
+	"github.com/nguyengg/go-aws-commons/lambda"
 	"github.com/nguyengg/go-aws-commons/opaque-token/endec"
 )
 
@@ -97,9 +97,10 @@ func WithKeyFromSecretsManager(client endec.GetSecretValueAPIClient, secretId st
 }
 
 // WithKeyFromLambdaExtensionSecrets retrieves key from AWS Parameters and Secrets Lambda Extension
-// (https://docs.aws.amazon.com/secretsmanager/latest/userguide/retrieving-secrets_lambda.html).
+// (https://docs.aws.amazon.com/secretsmanager/latest/userguide/retrieving-secrets_lambda.html) using the default client
+// [lambda.DefaultParameterSecretsExtensionClient].
 func WithKeyFromLambdaExtensionSecrets(secretId string) KeyProvider {
-	return WithKeyFromSecretsManager(endec.LambdaExtensionClient{Client: &http.Client{}}, secretId)
+	return WithKeyFromSecretsManager(lambda.DefaultParameterSecretsExtensionClient, secretId)
 }
 
 // WithHash can be used to change the hash function.
