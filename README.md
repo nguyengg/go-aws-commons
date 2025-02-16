@@ -9,13 +9,7 @@ Henry's Golang multi-module workspace containing various libraries to make using
 This package adds optimistic locking and auto-generated timestamps by modifying the expressions being created as part of
 a DynamoDB service call. Here's a snippet.
 
-First, add new tags to your struct that can be parsed by `ddb` module:
-1. `hashkey`, `sortkey`, and `tableName`: must be tagged on valid key types (S, N, and B).
-2. `version` (optional): must be a valid N type to enable optimistic locking.
-3. `createdTime` and `modifiedTime` (both optional): must be a valid time.Time. Can choose from
-   [timestamp](ddb/timestamp) module if you'd like more control the types, such as `timestamp.Day` (2006-01-02),
-   `timestamp.EpochMillisecond`, `timestamp.EpochSecond` (useful as TTL values) or `timestamp.Timestamp`
-   (2006-01-02T15:04:05.000Z - also how `time.Time` is marshalled to DynamoDB by default),
+First, add new tags to your struct that can be parsed by `ddb` module like this:
 ```go
 type Item struct {
 	Id           string    `dynamodbav:"id,hashkey" tableName:"my-table"`
@@ -40,6 +34,10 @@ if len(getItemOutput) == 0 {
 
 See [ddb](ddb) for more examples.
 
+## Lambda Handler wrappers with sensible defaults
+
+WIP - see [lambda](lambda) for more examples.
+
 ## Logging SDK latency metrics and other custom metrics
 
 AWS SDK Go v2 middleware to measure and emit latency and fault metrics on the AWS requests. Additionally, you can also
@@ -54,37 +52,37 @@ dynamodbClient := dynamodb.NewFromConfig(cfg)
 Once processing finishes, logs the `Metrics` instance with zerolog to get JSON output like this:
 ```json
 {
-    "startTime": 1739504515510,
-    "endTime": "Fri, 14 Feb 2025 03:41:57 GMT",
-    "time": "1602.040 ms",
-    "statusCode": 200,
-    "counters": {
-	"S3.GetObject.ServerFault": 0,
-	"S3.GetObject.UnknownFault": 0,
-	"DynamoDB.Query.ClientFault": 0,
-	"DynamoDB.Query.ServerFault": 0,
-	"S3.GetObject.ClientFault": 0,
-	"DynamoDB.Query.UnknownFault": 0,
-	"2xx": 1,
-	"4xx": 0,
-	"5xx": 0
-    },
-    "timings": {
-	"S3.GetObject": {
-	    "sum": "64.680 ms",
-	    "min": "64.680 ms",
-	    "max": "64.680 ms",
-	    "n": 1,
-	    "avg": "64.680 ms"
-	},
-	"DynamoDB.Query": {
-	    "sum": "74.255 ms",
-	    "min": "74.255 ms",
-	    "max": "74.255 ms",
-	    "n": 1,
-	    "avg": "74.255 ms"
-	}
-    }
+   "startTime": 1739504515510,
+   "endTime": "Fri, 14 Feb 2025 03:41:57 GMT",
+   "time": "1602.040 ms",
+   "statusCode": 200,
+   "counters": {
+      "S3.GetObject.ServerFault": 0,
+      "S3.GetObject.UnknownFault": 0,
+      "DynamoDB.Query.ClientFault": 0,
+      "DynamoDB.Query.ServerFault": 0,
+      "S3.GetObject.ClientFault": 0,
+      "DynamoDB.Query.UnknownFault": 0,
+      "2xx": 1,
+      "4xx": 0,
+      "5xx": 0
+   },
+   "timings": {
+      "S3.GetObject": {
+         "sum": "64.680 ms",
+         "min": "64.680 ms",
+         "max": "64.680 ms",
+         "n": 1,
+         "avg": "64.680 ms"
+      },
+      "DynamoDB.Query": {
+         "sum": "74.255 ms",
+         "min": "74.255 ms",
+         "max": "74.255 ms",
+         "n": 1,
+         "avg": "74.255 ms"
+      }
+   }
 }
 ```
 
@@ -115,14 +113,6 @@ rotate the secret without impacting current users. See [opaque-token](opaque-tok
 The module also has support for HMAC generation and verification which I also use for CSRF as well.
 ```go
 signer := hmac.New(hmac.WithKeyFromLambdaExtensionSecrets("my-secret-id"))
-
-// to get a stable hash (same input produces same output), pass 0 for nonce size.
-payload := []byte("hello, world")
-signature, _ := signer.Sign(ctx, payload, 0)
-ok, _ := signer.Verify(ctx, signature, payload)
-if !ok {
-	panic("signature verification fails")
-}
 
 // to use the signature as CSRF token, include session-dependent value according to
 // https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html#pseudo-code-for-implementing-hmac-csrf-tokens.
@@ -155,31 +145,14 @@ accurately showing upload progress. See [s3writer](s3writer) for examples.
 
 ## Protect EC2 instances from being scaled down while busy
 
-Monitor workers' statuses to enable or disable instance scale-in protection accordingly. Inspired by
-https://docs.aws.amazon.com/autoscaling/ec2/userguide/as-using-sqs-queue.html#scale-sqs-queue-scale-in-protection:
-
-```java
-while (true)
-{
-    SetInstanceProtection(False);
-    Work = GetNextWorkUnit();
-    SetInstanceProtection(True);
-    ProcessWorkUnit(Work);
-    SetInstanceProtection(False);
-}
-```
-
+Monitor workers' statuses to enable or disable instance scale-in protection accordingly, inspired by
+https://docs.aws.amazon.com/autoscaling/ec2/userguide/as-using-sqs-queue.html#scale-sqs-queue-scale-in-protection.
 Essentially, if you have any number of workers who can be either ACTIVE or IDLE, you generally want to enable scale-in
 protection when any of your worker is actively doing some work, while once all the workers have become idle, you would
-want to disable scale-in protection to let the Auto Scaling group reclaim your instance naturally.
+want to disable scale-in protection to let the Auto Scaling group reclaim your instance naturally. See
+[scale-in-protection](scale-in-protection) for examples.
 
-**Note**: there is a possibility that your instance is terminated in-between the `GetWorkUnit()` and the
-`ProcessWorkUnit(Work)` calls. Generally if your visibility timeout is low enough, this is not an issue as a different
-worker would be able to pick up the message again.
-
-See [scale-in-protection](scale-in-protection) for examples.
-
-## Subresource integrity - hash generation and verification
+## Subresource Integrity computation and verification
 
 Subresource Integrity ([SRI](https://developer.mozilla.org/en-US/docs/Web/Security/Subresource_Integrity)) is a hash
 prefixed with the hash function name. The [sri](sri) module provides functionality to generate and verify SRI hashes:
