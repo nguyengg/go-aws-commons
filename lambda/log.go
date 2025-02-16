@@ -2,16 +2,37 @@ package lambda
 
 import (
 	"context"
-	"github.com/aws/aws-lambda-go/lambdacontext"
 	"log"
+	"os"
+
+	"github.com/aws/aws-lambda-go/lambdacontext"
 )
 
-// RecommendedLogFlag is the flag passed to log.SetFlags by SetUpLogger.
-const RecommendedLogFlag = log.Ldate | log.Lmicroseconds | log.LUTC | log.Lmsgprefix | log.Lshortfile
-
-// SetUpGlobalLogger applies sensible default settings to  log.Default.
+// IsDebug is true if the "DEBUG" environment have value "1" or "true".
 //
-// Specifically, [log.SetFlags] is called with RecommendedLogFlag, and if [lambdacontext.LambdaContext.AwsRequestId] is
+// The value of IsDebug is set at startup by way of init(). While many things in the lambda package use this value,
+// nothing will modify it. If you want to use a different environment variable or a different way to toggle DEBUG
+// behaviour, modify this value directly.
+var IsDebug bool
+
+func init() {
+	switch os.Getenv("DEBUG") {
+	case "1", "true":
+		IsDebug = true
+	}
+}
+
+const (
+	// DebugLogFlags is the flag passed to log.SetFlags by SetUpLogger if IsDebug is true.
+	DebugLogFlags = log.Ldate | log.Lmicroseconds | log.LUTC | log.Llongfile | log.Lmsgprefix
+
+	// DefaultLogFlags is the flag passed to log.SetFlags by SetUpLogger if IsDebug is false.
+	DefaultLogFlags = DebugLogFlags | log.Lshortfile
+)
+
+// SetUpGlobalLogger applies sensible default settings to log.Default instance.
+//
+// Specifically, [log.SetFlags] is called with DefaultLogFlags, and if [lambdacontext.LambdaContext.AwsRequestId] is
 // available then it is set as the log prefix with [log.SetPrefix].
 //
 // A function is returned that should be deferred upon to reset the log flags and prefix back to the original values.
@@ -33,7 +54,11 @@ func SetUpLogger(ctx context.Context, logger *log.Logger) func() {
 	flags := logger.Flags()
 	prefix := logger.Prefix()
 
-	logger.SetFlags(RecommendedLogFlag)
+	if IsDebug {
+		logger.SetFlags(DebugLogFlags)
+	} else {
+		logger.SetFlags(DefaultLogFlags)
+	}
 
 	if lc, ok := lambdacontext.FromContext(ctx); ok {
 		logger.SetPrefix(lc.AwsRequestID + " ")

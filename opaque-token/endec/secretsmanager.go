@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"log"
 
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 )
@@ -179,11 +178,7 @@ func defaultSecretStringDecoder(v string) (data []byte, err error) {
 		data, err = hex.DecodeString(v)
 		if err != nil {
 			data, err = []byte(v), nil
-		} else {
-			log.Printf("data is hex")
 		}
-	} else {
-		log.Printf("data is base64.RawStdEncoding")
 	}
 
 	return
