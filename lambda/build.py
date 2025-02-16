@@ -22,33 +22,34 @@ def main():
         description='Build a Lambda Go handler and update the associated function with the compressed build artifacts.',
         epilog="""The script can be updated with `curl --proto '=https' -fo build.py https://raw.githubusercontent.com/nguyengg/go-aws-commons/main/lambda/build.py`""")
     parser.add_argument('--assume-role', dest='role_arn', type=str, metavar='arn:aws:iam::123456789012:role/my-role',
-                        help='If --assume-role is given a role ARN, this role will be assumed to produce the '
-                             'credentials that are used to update Lambda functions.')
+                        help='If given a role ARN, this role will be assumed to produce the credentials that are used '
+                             'to update Lambda functions.')
     parser.add_argument('-b', '--build', action='store_true',
-                        help='If -b is given, `go build` is always executed. If -b is present but not -u, stop after '
-                             'build step; the build artifacts are available in --bin-dir (default to ./bin). If neither '
-                             '-b nor -u are given then both actions take place in sequence (implicit -bu).')
+                        help='If given, `go build` is always executed. If -b is present but not -u, stop after build '
+                             'step; the build artifacts are available in --bin-dir (default to ./bin). If neither -b '
+                             'nor -u are given then both actions take place in sequence (implicit -bu).')
     parser.add_argument('-u', '--update', action='store_true',
-                        help='If -u is given, the function whose name is provided by --function-name or main_package '
-                             'will be updated using the build artifacts produced by -b. If build output is not '
-                             'available, -b is implicitly added. If neither -b nor -u are given then both actions take '
-                             'place in sequence (implicit -bu).')
+                        help='If given, the function whose name is provided by --function-name or main_package will be '
+                             'updated using the build artifacts produced by -b. If build output is not available, -b '
+                             'is implicitly added. If neither -b nor -u are given then both actions take place in '
+                             'sequence (implicit -bu).')
     parser.add_argument('-f', '--function', dest='functions', action='append', default=[], metavar='function-name',
-                        help='-f/--function may be given multiple times to provide the names, ARNs, or partial ARNs of '
-                             'the functions to be updated. If not given, the basename of required positional argument '
-                             '(main_package) will be used as the function name.')
+                        help='May be given multiple times (`-f test-function -f 123456789012:function:my-function ...`)'
+                             ' to provide the names, ARNs, or partial ARNs of the functions to be updated. If not '
+                             'given, the basename of required positional argument (main_package) will be used as the '
+                             'function name.')
     parser.add_argument('-d', '--delete', action='store_true',
-                        help='If -d is given, the executables produced by `go build` will be deleted only if they were '
+                        help='If given, the executables produced by `go build` will be deleted only if they were '
                              'produced by the command, and if the command completes successfully.')
     parser.add_argument('--load-dotenv', action=LoadDotEnvAction, metavar='/path/to/.env',
-                        help='If --load-dotenv is given with an optional .env path, load_env from dotenv (must be '
-                             'preinstalled) will be used to set additional environment variables that apply to build '
-                             'and update steps. Shell variables and those provided with --env-var will not be '
-                             'overridden due to default behaviour of load_dotenv(override=False).')
-    parser.add_argument('-e', '--env-var', action=EnvVarAction, metavar='AWS_PROFILE=my-profile',
-                        help='-e/--env-var may be specified multiple times to provide additional environment variables '
-                             'that apply to build and update steps. These environment variables will override shell '
-                             'variables as well as those loaded with --load-dotenv.')
+                        help='If given with an optional .env path, load_env from dotenv (must be preinstalled with '
+                             '`pip3 install python-dotenv`) will be used to set additional environment variables that '
+                             'apply to build and update steps. Existing variables will not be overridden.')
+    parser.add_argument('--load-dotenv-override', action=LoadDotEnvAction, override=True, metavar='/path/to/.env',
+                        help='A variant of --load-dotenv that will override existing variables.')
+    parser.add_argument('-e', '--env-var', action=EnvVarAction, metavar='KEY=value',
+                        help='May be specified multiple times (`-e AWS_PROFILE=my-profile -e GOOS=linux ...`) to set '
+                             'additional environment variables that apply to build and update steps.')
     parser.add_argument('--tags', default='lambda.norpc', metavar='tag,list', nargs='?', const=None,
                         help='Override the comma-separated list of build tags passed to `go build`. By default, '
                              '`-tags lambda.norpc` is provided. To pass no tags, specify `--tags` without any value.')
@@ -137,10 +138,8 @@ def update_and_wait(functions, file, role_arn=None):
 
 
 class EnvVarAction(argparse.Action):
-    def __init__(self, option_strings, dest, nargs=None, **kwargs):
-        if nargs is not None:
-            raise ValueError(f"nargs {nargs} must be None")
-        super().__init__(option_strings, dest, nargs=None, **kwargs)
+    def __init__(self, option_strings, dest, **kwargs):
+        super().__init__(option_strings, dest, nargs=None, type=str, **kwargs)
 
     def __call__(self, parser, namespace, values, option_string=None):
         key, _, value = values.partition("=")
@@ -150,14 +149,13 @@ class EnvVarAction(argparse.Action):
 
 
 class LoadDotEnvAction(argparse.Action):
-    def __init__(self, option_strings, dest, nargs=None, **kwargs):
-        if nargs is not None and nargs != '?':
-            raise ValueError(f"nargs {nargs} must be ? if given")
-        super().__init__(option_strings, dest, nargs='?', **kwargs)
+    def __init__(self, option_strings, dest, override=False, **kwargs):
+        super().__init__(option_strings, dest, nargs='?', type=str, **kwargs)
+        self.override = override
 
     def __call__(self, parser, namespace, value, option_string=None):
         from dotenv import load_dotenv
-        load_dotenv(dotenv_path=value)
+        load_dotenv(dotenv_path=value, override=self.override)
 
 
 if __name__ == "__main__":
