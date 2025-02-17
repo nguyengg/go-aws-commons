@@ -34,7 +34,7 @@ if len(getItemOutput) == 0 {
 
 See [ddb](ddb) for more examples.
 
-## Lambda Handler wrappers with sensible defaults
+## Lambda handler wrappers with sensible defaults
 
 WIP - see [lambda](lambda) for more examples.
 

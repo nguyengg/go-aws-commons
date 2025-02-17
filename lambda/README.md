@@ -1,4 +1,6 @@
-# Lambda Handler wrappers with sensible defaults
+# Lambda handler wrappers with sensible defaults
+
+[![Go Reference](https://pkg.go.dev/badge/github.com/nguyengg/go-aws-commons/lambda.svg)](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/lambda)
 
 ## GetParameter and GetSecretValue using AWS Parameter and Secrets Lambda extension
 
