@@ -2,6 +2,8 @@ package lambda
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 
@@ -68,4 +70,48 @@ func SetUpLogger(ctx context.Context, logger *log.Logger) func() {
 		logger.SetFlags(flags)
 		logger.SetPrefix(prefix)
 	}
+}
+
+type jsonFormatter struct {
+	v interface{}
+}
+
+func (j *jsonFormatter) Format(f fmt.State, verb rune) {
+	switch data, err := json.Marshal(j.v); err {
+	case nil:
+		_, _ = fmt.Fprintf(f, "%s", data)
+	default:
+		_, _ = fmt.Fprintf(f, string(verb), j.v)
+
+	}
+}
+
+type jsonIndentFormatter struct {
+	v              interface{}
+	prefix, indent string
+}
+
+func (j jsonIndentFormatter) Format(f fmt.State, verb rune) {
+	switch data, err := json.MarshalIndent(j.v, j.prefix, j.indent); err {
+	case nil:
+		_, _ = fmt.Fprintf(f, "%s", data)
+	default:
+		_, _ = fmt.Fprintf(f, string(verb), j.v)
+	}
+}
+
+// JSON returns a fmt.Formatter wrapper that returns the JSON representation of the given struct.
+//
+// If encoding the struct v fails, falls back to original formatter.
+//
+// Usage:
+//
+//	log.Printf("request=%s", JSON(v))
+func JSON(v interface{}) fmt.Formatter {
+	return &jsonFormatter{v}
+}
+
+// JSONIdent is a variant of JSON that marshals with indentation.
+func JSONIdent(v interface{}, prefix, indent string) fmt.Formatter {
+	return &jsonIndentFormatter{v, prefix, indent}
 }

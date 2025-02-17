@@ -36,7 +36,42 @@ See [ddb](ddb) for more examples.
 
 ## Lambda handler wrappers with sensible defaults
 
-WIP - see [lambda](lambda) for more examples.
+The various `StartABC` functions wrap your Lambda handler so that a [Metrics](metrics) instance is available from
+context and will be logged with sensible default metrics (start and end time, latency, fault, etc.) upon return of your
+Lambda handler.
+
+```go
+package main
+
+import (
+	"context"
+
+	"github.com/aws/aws-lambda-go/events"
+	"github.com/nguyengg/go-aws-commons/lambda"
+	"github.com/nguyengg/go-aws-commons/metrics"
+)
+
+func main() {
+	// you can use a specific specialisation for your handler like DynamoDB stream event below.
+	lambda.StartDynamoDBEventHandleFunc(func(ctx context.Context, event events.DynamoDBEvent) (events.DynamoDBEventResponse, error) {
+		m := metrics.Ctx(ctx)
+		m.IncrementCount("myMetric")
+		return events.DynamoDBEventResponse{}, nil
+	})
+
+	// or you can use the generic StartHandlerFunc template if there isn't a specialisation.
+	lambda.StartHandlerFunc(func(ctx context.Context, event events.DynamoDBEvent) (events.DynamoDBEventResponse, error) {
+		m := metrics.Ctx(ctx)
+		m.IncrementCount("myMetric")
+		return events.DynamoDBEventResponse{}, nil
+	})
+
+	// when your handler returns, the Metrics instance will be logged to standard error stream.
+}
+
+```
+
+See [lambda](lambda) for more examples.
 
 ## Logging SDK latency metrics and other custom metrics
 
