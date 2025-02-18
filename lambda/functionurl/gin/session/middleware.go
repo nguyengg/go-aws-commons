@@ -31,12 +31,21 @@ type Options struct {
 }
 
 // GetSession is a function that can retrieve a session from a session Id.
-type GetSession[SessionType any] func(ctx context.Context, sessionId string) (*SessionType, error)
+//
+// FromDynamoDB is a GetSession implementation that makes DynamoDB GetItem calls to retrieve the session.
+type GetSession[SessionType interface{}] func(ctx context.Context, sessionId string) (SessionType, error)
 
 // HasUser is the interface for the GetUser method which can be used to return information about a user attached with a
 // session.
 type HasUser[UserType any] interface {
-	GetUser() *UserType
+	GetUser() UserType
+}
+
+// HasGroups is the interface for the GetGroups method which returns all the groups that the user belongs to.
+//
+// The return value is intended to be used with Groups.Test to test for membership.
+type HasGroups interface {
+	GetGroups() []string
 }
 
 // RequireSession adds a middleware that rejects all requests with http.StatusUnauthorized that don't have a valid
@@ -116,7 +125,7 @@ func RequireAuthentication[UserType interface{}](f GetSession[HasUser[UserType]]
 			c.Set(opts.SessionKey, s)
 		}
 
-		user := (*s).GetUser()
+		user := s.GetUser()
 		if user == nil {
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
@@ -128,13 +137,6 @@ func RequireAuthentication[UserType interface{}](f GetSession[HasUser[UserType]]
 
 		c.Next()
 	}
-}
-
-// HasGroups is the interface for the GetGroups method which returns all the groups that the user belongs to.
-//
-// The return value is intended to be used with Groups.Test to test for membership.
-type HasGroups interface {
-	GetGroups() []string
 }
 
 // RequireAuthorisation implies RequireAuthentication (which implies RequireSession) while also test that the
@@ -181,7 +183,7 @@ func RequireAuthorisationWithOptions[UserType HasGroups](f GetSession[HasUser[Us
 			c.Set(opts.SessionKey, s)
 		}
 
-		user := (*s).GetUser()
+		user := s.GetUser()
 		if user == nil {
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
@@ -191,7 +193,7 @@ func RequireAuthorisationWithOptions[UserType HasGroups](f GetSession[HasUser[Us
 			c.Set(opts.UserKey, user)
 		}
 
-		if !Groups((*user).GetGroups()).Test(rule, opts.rules...) {
+		if !Groups(user.GetGroups()).Test(rule, opts.rules...) {
 			c.AbortWithStatus(http.StatusForbidden)
 			return
 		}
