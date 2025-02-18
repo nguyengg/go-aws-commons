@@ -16,11 +16,15 @@ import (
 // StartBuffered starts the Lambda loop in BUFFERED mode with the given Gin engine.
 func StartBuffered(r *gin.Engine, options ...lambda.Option) {
 	lambda.StartHandlerFunc(func(ctx context.Context, req events.LambdaFunctionURLRequest) (res events.LambdaFunctionURLResponse, err error) {
-		httpRequest, err := toHTTPRequest(req)
+		ctx = context.WithValue(ctx, &requestCtxKey{}, req)
+
+		httpRequest, err := toHTTPRequest(&req)
 		if err != nil {
 			res.StatusCode = http.StatusBadGateway
+			res.Body = http.StatusText(http.StatusBadGateway)
 			return res, err
 		}
+		httpRequest = httpRequest.WithContext(ctx)
 
 		w := &bufferedResponseWriter{
 			statusCode: 0,
@@ -57,7 +61,8 @@ func StartBuffered(r *gin.Engine, options ...lambda.Option) {
 	}, options...)
 }
 
-// bufferedResponseWriter implements http.ResponseWriter to serve as the adapter between gin and Lambda.
+// bufferedResponseWriter implements http.ResponseWriter to serve as the adapter between gin and Function URL in
+// BUFFERED mode.
 type bufferedResponseWriter struct {
 	statusCode int
 	header     http.Header
