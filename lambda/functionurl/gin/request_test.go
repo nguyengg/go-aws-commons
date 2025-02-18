@@ -33,8 +33,8 @@ func Test_toHTTPRequest(t *testing.T) {
 				RawQueryString: "hello=world",
 				Cookies:        []string{"sid=12345"},
 				Headers: map[string]string{
-					"x-amz-invocation-id": "12345",       // should be made "canonical"
-					"Test":                "hello,world", // example of split cookie
+					"x-amz-request-id": "12345",       // should be made "canonical"
+					"Test":             "hello,world", // example of split cookie
 				},
 				QueryStringParameters: nil, // RawQueryString is used.
 				RequestContext: events.LambdaFunctionURLRequestContext{
