@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
-	"github.com/nguyengg/go-aws-commons/ddb/internal"
 )
 
 // Builder parses the attributes from DynamoDB struct tags `dynamodbav` to build DynamoDB request input parameters.
@@ -91,7 +90,7 @@ func (b *Builder) ParseFromType(t reflect.Type, optFns ...func(*BuildOptions)) e
 		fn(&opts)
 	}
 
-	m, err := internal.ParseFromType(t)
+	m, err := ParseFromType(t)
 	if err != nil {
 		return err
 	}
@@ -110,14 +109,14 @@ func (b *Builder) ParseFromType(t reflect.Type, optFns ...func(*BuildOptions)) e
 	return nil
 }
 
-func (b *Builder) loadOrParse(t reflect.Type) (*internal.Model, error) {
-	t = internal.DereferencedType(t)
+func (b *Builder) loadOrParse(t reflect.Type) (*Model, error) {
+	t = DereferencedType(t)
 	v, ok := b.cache.Load(t)
 	if ok {
-		return v.(*internal.Model), nil
+		return v.(*Model), nil
 	}
 
-	m, err := internal.ParseFromType(t)
+	m, err := ParseFromType(t)
 	if err != nil {
 		return nil, err
 	}
