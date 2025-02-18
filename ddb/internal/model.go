@@ -1,12 +1,10 @@
-package ddb
+package internal
 
 import (
 	"fmt"
 	"reflect"
 	"strings"
 	"time"
-
-	"github.com/nguyengg/go-aws-commons/ddb/internal"
 )
 
 var (
@@ -19,11 +17,11 @@ type Model struct {
 	// StructType is the type of the struct from which the Model instance was parsed.
 	StructType   reflect.Type
 	TableName    *string
-	HashKey      *internal.Attribute
-	SortKey      *internal.Attribute
-	Version      *internal.Attribute
-	CreatedTime  *internal.Attribute
-	ModifiedTime *internal.Attribute
+	HashKey      *Attribute
+	SortKey      *Attribute
+	Version      *Attribute
+	CreatedTime  *Attribute
+	ModifiedTime *Attribute
 }
 
 // DereferencedType returns the innermost type that is not reflect.Interface or reflect.Ptr.
@@ -67,7 +65,7 @@ func ParseFromType(t reflect.Type) (*Model, error) {
 			continue
 		}
 
-		attr := &internal.Attribute{Name: name, Field: structField}
+		attr := &Attribute{Name: name, Field: structField}
 		for _, tag = range tags[1:] {
 			switch tag {
 			case "hashkey":
