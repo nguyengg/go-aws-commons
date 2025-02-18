@@ -48,6 +48,8 @@ func ParseFromType(t reflect.Type) (*Model, error) {
 	t = DereferencedType(t)
 	m := &Model{StructType: t}
 
+	var ok bool
+
 	for i, n := 0, t.NumField(); i < n; i++ {
 		structField := t.Field(i)
 		if !structField.IsExported() {
@@ -73,7 +75,7 @@ func ParseFromType(t reflect.Type) (*Model, error) {
 					return nil, fmt.Errorf(`found multiple hashkey fields in type "%s"`, t.Name())
 				}
 
-				if !validKeyAttribute(structField) {
+				if ok, attr.DataType = validKeyAttribute(structField); !ok {
 					return nil, fmt.Errorf(`unsupported hashkey field type "%s"`, structField.Type)
 				}
 
@@ -88,7 +90,7 @@ func ParseFromType(t reflect.Type) (*Model, error) {
 					return nil, fmt.Errorf(`found multiple sortkey fields in type "%s"`, t.Name())
 				}
 
-				if !validKeyAttribute(structField) {
+				if ok, attr.DataType = validKeyAttribute(structField); !ok {
 					return nil, fmt.Errorf(`unsupported sortkey field type "%s"`, structField.Type)
 				}
 
@@ -132,18 +134,18 @@ func ParseFromType(t reflect.Type) (*Model, error) {
 	return m, nil
 }
 
-func validKeyAttribute(field reflect.StructField) bool {
+func validKeyAttribute(field reflect.StructField) (bool, DataType) {
 	switch ft := field.Type; ft.Kind() {
 	case reflect.String:
-		fallthrough
+		return true, DataTypeS
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
 		reflect.Float32, reflect.Float64:
-		return true
+		return true, DataTypeN
 	case reflect.Array, reflect.Slice:
-		return ft == byteSliceType || ft.Elem().Kind() == reflect.Uint8
+		return ft == byteSliceType || ft.Elem().Kind() == reflect.Uint8, DataTypeB
 	default:
-		return false
+		return false, DataTypeUnknown
 	}
 }
 
