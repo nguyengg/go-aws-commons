@@ -9,14 +9,24 @@ import (
 	"unicode/utf8"
 
 	"github.com/aws/aws-lambda-go/events"
-	"github.com/aws/aws-lambda-go/lambda"
+	awslambda "github.com/aws/aws-lambda-go/lambda"
+	"github.com/aws/aws-lambda-go/lambdacontext"
 	"github.com/gin-gonic/gin"
+	"github.com/nguyengg/go-aws-commons/lambda"
+	"github.com/nguyengg/go-aws-commons/metrics"
 )
 
 // StartBuffered starts the Lambda loop in BUFFERED mode with the given Gin engine.
-func StartBuffered(r *gin.Engine, options ...lambda.Option) {
+func StartBuffered(r *gin.Engine, options ...awslambda.Option) {
+	r.Use(fault)
+
 	lambda.StartHandlerFunc(func(ctx context.Context, req events.LambdaFunctionURLRequest) (res events.LambdaFunctionURLResponse, err error) {
 		ctx = context.WithValue(ctx, &requestCtxKey{}, req)
+		m := metrics.Ctx(ctx)
+
+		if lc, ok := lambdacontext.FromContext(ctx); ok {
+			m.SetProperty("awsRequestID", lc.AwsRequestID)
+		}
 
 		httpRequest, err := toHTTPRequest(&req)
 		if err != nil {
@@ -37,6 +47,7 @@ func StartBuffered(r *gin.Engine, options ...lambda.Option) {
 		r.ServeHTTP(w, httpRequest)
 
 		res.StatusCode = w.statusCode
+		m.SetStatusCode(w.statusCode)
 
 		// cookies and headers come from the same w.header.
 		res.Cookies = make([]string, 0)

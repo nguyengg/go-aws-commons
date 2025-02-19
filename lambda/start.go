@@ -5,6 +5,7 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/aws/aws-lambda-go/lambdacontext"
 	"github.com/nguyengg/go-aws-commons/metrics"
 	"github.com/rs/zerolog"
 )
@@ -21,6 +22,10 @@ import (
 func StartHandlerFunc[TIn any, TOut any](handler func(context.Context, TIn) (TOut, error), options ...lambda.Option) {
 	lambda.StartHandlerFunc(func(ctx context.Context, in TIn) (TOut, error) {
 		m := metrics.New()
+
+		if lc, ok := lambdacontext.FromContext(ctx); ok {
+			m.SetProperty("awsRequestID", lc.AwsRequestID)
+		}
 
 		defer SetUpGlobalLogger(ctx)()
 
@@ -49,6 +54,10 @@ func StartHandlerFunc[TIn any, TOut any](handler func(context.Context, TIn) (TOu
 func Start[TIn any](handler func(context.Context, TIn) error, options ...lambda.Option) {
 	lambda.StartWithOptions(func(ctx context.Context, in TIn) error {
 		m := metrics.New()
+
+		if lc, ok := lambdacontext.FromContext(ctx); ok {
+			m.SetProperty("awsRequestID", lc.AwsRequestID)
+		}
 
 		defer SetUpGlobalLogger(ctx)()
 
