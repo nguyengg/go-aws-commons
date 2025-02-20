@@ -1,10 +1,11 @@
-package internal
+package model
 
 import (
-	"github.com/stretchr/testify/assert"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 // both ParseFromStruct and ParseFromType should return exact same values.
