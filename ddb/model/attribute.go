@@ -37,6 +37,19 @@ const (
 	DataTypeB
 )
 
+func (t DataType) String() string {
+	switch t {
+	case DataTypeS:
+		return "S"
+	case DataTypeN:
+		return "N"
+	case DataTypeB:
+		return "B"
+	default:
+		return "?"
+	}
+}
+
 // EncodeKey encodes the given value as a DynamoDB key attribute value (can only be S, N, or B type).
 func (a *Attribute) EncodeKey(value interface{}) (types.AttributeValue, error) {
 	switch a.DataType {
