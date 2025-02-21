@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
@@ -90,7 +91,7 @@ func (b *Builder) createGetItem(key interface{}, opts *GetOptions, optFns ...fun
 	}
 
 	if opts.TableName == nil {
-		opts.TableName = attrs.TableName
+		opts.TableName = aws.String(attrs.TableName)
 	}
 
 	// GetItem only needs the key.
@@ -101,9 +102,9 @@ func (b *Builder) createGetItem(key interface{}, opts *GetOptions, optFns ...fun
 		return nil, fmt.Errorf("item did not encode to M type")
 	} else {
 		item := asMap.Value
-		keyAv = map[string]types.AttributeValue{attrs.HashKey.Name: item[attrs.HashKey.Name]}
+		keyAv = map[string]types.AttributeValue{attrs.HashKey.AttributeName: item[attrs.HashKey.AttributeName]}
 		if attrs.SortKey != nil {
-			keyAv[attrs.SortKey.Name] = item[attrs.SortKey.Name]
+			keyAv[attrs.SortKey.AttributeName] = item[attrs.SortKey.AttributeName]
 		}
 	}
 

@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strconv"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
@@ -105,7 +106,7 @@ func (b *Builder) createDeleteItem(key interface{}, opts *DeleteOptions, optFns 
 	}
 
 	if opts.TableName == nil {
-		opts.TableName = attrs.TableName
+		opts.TableName = aws.String(attrs.TableName)
 	}
 
 	// DeleteItem only needs the key.
@@ -116,9 +117,9 @@ func (b *Builder) createDeleteItem(key interface{}, opts *DeleteOptions, optFns 
 		return nil, fmt.Errorf("item did not encode to M type")
 	} else {
 		item := asMap.Value
-		keyAv = map[string]types.AttributeValue{attrs.HashKey.Name: item[attrs.HashKey.Name]}
+		keyAv = map[string]types.AttributeValue{attrs.HashKey.AttributeName: item[attrs.HashKey.AttributeName]}
 		if attrs.SortKey != nil {
-			keyAv[attrs.SortKey.Name] = item[attrs.SortKey.Name]
+			keyAv[attrs.SortKey.AttributeName] = item[attrs.SortKey.AttributeName]
 		}
 	}
 
@@ -132,13 +133,13 @@ func (b *Builder) createDeleteItem(key interface{}, opts *DeleteOptions, optFns 
 
 		switch {
 		case version.IsZero():
-			opts.And(expression.Name(attrs.HashKey.Name).AttributeNotExists())
+			opts.And(expression.Name(attrs.HashKey.AttributeName).AttributeNotExists())
 		case version.CanInt():
-			opts.And(expression.Name(versionAttr.Name).Equal(expression.Value(&types.AttributeValueMemberN{Value: strconv.FormatInt(version.Int(), 10)})))
+			opts.And(expression.Name(versionAttr.AttributeName).Equal(expression.Value(&types.AttributeValueMemberN{Value: strconv.FormatInt(version.Int(), 10)})))
 		case version.CanUint():
-			opts.And(expression.Name(versionAttr.Name).Equal(expression.Value(&types.AttributeValueMemberN{Value: strconv.FormatUint(version.Uint(), 10)})))
+			opts.And(expression.Name(versionAttr.AttributeName).Equal(expression.Value(&types.AttributeValueMemberN{Value: strconv.FormatUint(version.Uint(), 10)})))
 		case version.CanFloat():
-			opts.And(expression.Name(versionAttr.Name).Equal(expression.Value(&types.AttributeValueMemberN{Value: strconv.FormatFloat(version.Float(), 'f', -1, 64)})))
+			opts.And(expression.Name(versionAttr.AttributeName).Equal(expression.Value(&types.AttributeValueMemberN{Value: strconv.FormatFloat(version.Float(), 'f', -1, 64)})))
 		default:
 			panic(fmt.Errorf("version attribute's type (%s) is unknown numeric type", version.Type()))
 		}

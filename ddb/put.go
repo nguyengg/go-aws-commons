@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -133,7 +134,7 @@ func (b *Builder) createPutItem(item interface{}, opts *PutOptions, optFns ...fu
 	}
 
 	if opts.TableName == nil {
-		opts.TableName = attrs.TableName
+		opts.TableName = aws.String(attrs.TableName)
 	}
 
 	// PutItem requires the entire map[string]AttributeValue itemAv.
@@ -156,17 +157,17 @@ func (b *Builder) createPutItem(item interface{}, opts *PutOptions, optFns ...fu
 
 		switch {
 		case version.IsZero():
-			opts.And(expression.Name(attrs.HashKey.Name).AttributeNotExists())
-			itemAv[versionAttr.Name] = &types.AttributeValueMemberN{Value: "1"}
+			opts.And(expression.Name(attrs.HashKey.AttributeName).AttributeNotExists())
+			itemAv[versionAttr.AttributeName] = &types.AttributeValueMemberN{Value: "1"}
 		case version.CanInt():
-			opts.And(expression.Name(versionAttr.Name).Equal(expression.Value(itemAv[versionAttr.Name])))
-			itemAv[versionAttr.Name] = &types.AttributeValueMemberN{Value: strconv.FormatInt(version.Int()+1, 10)}
+			opts.And(expression.Name(versionAttr.AttributeName).Equal(expression.Value(itemAv[versionAttr.AttributeName])))
+			itemAv[versionAttr.AttributeName] = &types.AttributeValueMemberN{Value: strconv.FormatInt(version.Int()+1, 10)}
 		case version.CanUint():
-			opts.And(expression.Name(versionAttr.Name).Equal(expression.Value(itemAv[versionAttr.Name])))
-			itemAv[versionAttr.Name] = &types.AttributeValueMemberN{Value: strconv.FormatUint(version.Uint()+1, 10)}
+			opts.And(expression.Name(versionAttr.AttributeName).Equal(expression.Value(itemAv[versionAttr.AttributeName])))
+			itemAv[versionAttr.AttributeName] = &types.AttributeValueMemberN{Value: strconv.FormatUint(version.Uint()+1, 10)}
 		case version.CanFloat():
-			opts.And(expression.Name(versionAttr.Name).Equal(expression.Value(itemAv[versionAttr.Name])))
-			itemAv[versionAttr.Name] = &types.AttributeValueMemberN{Value: strconv.FormatFloat(version.Float(), 'f', -1, 64)}
+			opts.And(expression.Name(versionAttr.AttributeName).Equal(expression.Value(itemAv[versionAttr.AttributeName])))
+			itemAv[versionAttr.AttributeName] = &types.AttributeValueMemberN{Value: strconv.FormatFloat(version.Float(), 'f', -1, 64)}
 		default:
 			panic(fmt.Errorf("version attribute's type (%s) is unknown numeric type", version.Type()))
 		}
@@ -193,7 +194,7 @@ func (b *Builder) createPutItem(item interface{}, opts *PutOptions, optFns ...fu
 				}
 			}
 
-			itemAv[createdTimeAttr.Name] = av
+			itemAv[createdTimeAttr.AttributeName] = av
 		}
 	}
 
@@ -217,7 +218,7 @@ func (b *Builder) createPutItem(item interface{}, opts *PutOptions, optFns ...fu
 				}
 			}
 
-			itemAv[modifiedTimeAttr.Name] = av
+			itemAv[modifiedTimeAttr.AttributeName] = av
 		}
 	}
 

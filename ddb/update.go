@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -118,7 +119,7 @@ func (b *Builder) createUpdateItem(key interface{}, opts *UpdateOptions, optFns 
 	}
 
 	if opts.TableName == nil {
-		opts.TableName = attrs.TableName
+		opts.TableName = aws.String(attrs.TableName)
 	}
 
 	// UpdateItem only needs the key.
@@ -129,9 +130,9 @@ func (b *Builder) createUpdateItem(key interface{}, opts *UpdateOptions, optFns 
 		return nil, fmt.Errorf("item did not encode to M type")
 	} else {
 		item := asMap.Value
-		keyAv = map[string]types.AttributeValue{attrs.HashKey.Name: item[attrs.HashKey.Name]}
+		keyAv = map[string]types.AttributeValue{attrs.HashKey.AttributeName: item[attrs.HashKey.AttributeName]}
 		if attrs.SortKey != nil {
-			keyAv[attrs.SortKey.Name] = item[attrs.SortKey.Name]
+			keyAv[attrs.SortKey.AttributeName] = item[attrs.SortKey.AttributeName]
 		}
 	}
 
@@ -145,17 +146,17 @@ func (b *Builder) createUpdateItem(key interface{}, opts *UpdateOptions, optFns 
 
 		switch {
 		case version.IsZero():
-			opts.And(expression.Name(attrs.HashKey.Name).AttributeNotExists())
-			opts.Set(versionAttr.Name, &types.AttributeValueMemberN{Value: "1"})
+			opts.And(expression.Name(attrs.HashKey.AttributeName).AttributeNotExists())
+			opts.Set(versionAttr.AttributeName, &types.AttributeValueMemberN{Value: "1"})
 		case version.CanInt():
-			opts.And(expression.Name(versionAttr.Name).Equal(expression.Value(&types.AttributeValueMemberN{Value: strconv.FormatInt(version.Int(), 10)})))
-			opts.Add(versionAttr.Name, 1)
+			opts.And(expression.Name(versionAttr.AttributeName).Equal(expression.Value(&types.AttributeValueMemberN{Value: strconv.FormatInt(version.Int(), 10)})))
+			opts.Add(versionAttr.AttributeName, 1)
 		case version.CanUint():
-			opts.And(expression.Name(versionAttr.Name).Equal(expression.Value(&types.AttributeValueMemberN{Value: strconv.FormatUint(version.Uint(), 10)})))
-			opts.Add(versionAttr.Name, 1)
+			opts.And(expression.Name(versionAttr.AttributeName).Equal(expression.Value(&types.AttributeValueMemberN{Value: strconv.FormatUint(version.Uint(), 10)})))
+			opts.Add(versionAttr.AttributeName, 1)
 		case version.CanFloat():
-			opts.And(expression.Name(versionAttr.Name).Equal(expression.Value(&types.AttributeValueMemberN{Value: strconv.FormatFloat(version.Float(), 'f', -1, 64)})))
-			opts.Add(versionAttr.Name, 1)
+			opts.And(expression.Name(versionAttr.AttributeName).Equal(expression.Value(&types.AttributeValueMemberN{Value: strconv.FormatFloat(version.Float(), 'f', -1, 64)})))
+			opts.Add(versionAttr.AttributeName, 1)
 		default:
 			panic(fmt.Errorf("version attribute's type (%s) is unknown numeric type", version.Type()))
 		}
@@ -182,7 +183,7 @@ func (b *Builder) createUpdateItem(key interface{}, opts *UpdateOptions, optFns 
 			}
 		}
 
-		opts.Set(modifiedTimeAttr.Name, av)
+		opts.Set(modifiedTimeAttr.AttributeName, av)
 	}
 
 	var expr expression.Expression

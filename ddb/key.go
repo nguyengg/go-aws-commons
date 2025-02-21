@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
@@ -33,19 +32,19 @@ func createKey[T interface{}](partitionKey, sortKey interface{}) (key map[string
 		return nil, "", err
 	}
 
-	tableName = aws.ToString(m.TableName)
+	tableName = m.TableName
 	key = make(map[string]types.AttributeValue)
 
 	if k := m.HashKey; k == nil {
 		return nil, "", fmt.Errorf(`no hashkey field in type "%s"`, t)
-	} else if key[k.Name], err = k.EncodeKey(partitionKey); err != nil {
+	} else if key[k.AttributeName], err = k.Encode(partitionKey); err != nil {
 		return nil, "", err
 	}
 
 	if sortKey != nil {
 		if k := m.SortKey; k == nil {
 			return nil, "", fmt.Errorf(`no sortkey field in type "%s"`, t)
-		} else if key[k.Name], err = k.EncodeKey(sortKey); err != nil {
+		} else if key[k.AttributeName], err = k.Encode(sortKey); err != nil {
 			return nil, "", err
 		}
 	}

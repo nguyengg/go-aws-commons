@@ -1,4 +1,4 @@
-package model
+package ddb
 
 import (
 	"reflect"
@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// both ParseFromStruct and ParseFromType should return exact same values.
-func TestParse(t *testing.T) {
+// both NewTableFromStruct and NewTable should return exact same values.
+func TestNewTable(t *testing.T) {
 	type Test struct {
 		Id           string    `dynamodbav:",hashkey" tableName:""`
 		Sort         string    `dynamodbav:",sortkey"`
@@ -18,22 +18,22 @@ func TestParse(t *testing.T) {
 		ModifiedTime time.Time `dynamodbav:",modifiedTime,unixtime"`
 	}
 
-	a, err := ParseFromStruct(Test{})
+	a, err := NewTableFromStruct(Test{})
 	if err != nil {
-		t.Errorf("ParseFromStruct() error: %v", err)
+		t.Errorf("NewTableFromStruct() error: %v", err)
 	}
 
-	b, err := ParseFromType(reflect.TypeFor[Test]())
+	b, err := NewTable(reflect.TypeFor[Test]())
 	if err != nil {
-		t.Errorf("ParseFromType() error: %v", err)
+		t.Errorf("NewTableFromType() error: %v", err)
 	}
 
 	assert.Equal(t, a, b)
 
 	// can also parse from pointer value.
-	c, err := ParseFromStruct(&Test{})
+	c, err := NewTableFromStruct(&Test{})
 	if err != nil {
-		t.Errorf("ParseFromStruct() error: %v", err)
+		t.Errorf("NewTableFromStruct() error: %v", err)
 	}
 
 	assert.Equal(t, a, c)
