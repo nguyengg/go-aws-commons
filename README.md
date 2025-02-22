@@ -6,7 +6,7 @@ Henry's Golang multi-module workspace containing various libraries to make using
 
 ## DynamoDB goodies
 
-This package adds optimistic locking and auto-generated timestamps by modifying the expressions being created as part of
+This module adds optimistic locking and auto-generated timestamps by modifying the expressions being created as part of
 a DynamoDB service call. Here's a snippet.
 
 First, add new tags to your struct that can be parsed by `ddb` module like this:
@@ -32,7 +32,7 @@ if len(getItemOutput) == 0 {
 }
 ```
 
-See [ddb](ddb) for more examples.
+See [ddb](ddb) module for more examples.
 
 ## Logging SDK latency metrics and other custom metrics
 
@@ -46,13 +46,13 @@ dynamodbClient := dynamodb.NewFromConfig(cfg)
 ```
 
 Once processing finishes, logs the `Metrics` instance with zerolog to get JSON output like described in
-[metrics](metrics).
+[metrics](metrics) module.
 
 ## Lambda handler wrappers with sensible defaults
 
-The various `StartABC` functions wrap your Lambda handler so that a [Metrics](metrics) instance is available from
+The various `StartABC` functions wrap your Lambda handler so that a `Metrics` instance is available from
 context and will be logged with sensible default metrics (start and end time, latency, fault, etc.) upon return of your
-Lambda handler (see [metrics](metrics) for an example on the JSON log message).
+Lambda handler (see [metrics](metrics) module for an example on the JSON log message).
 
 ```go
 // you can use a specific specialisation for your handler like DynamoDB stream event below.
@@ -71,19 +71,38 @@ lambda.StartHandlerFunc(func(ctx context.Context, event events.DynamoDBEvent) (e
 
 ```
 
-See [lambda](lambda) for more examples.
+See [lambda](lambda) module for more examples.
 
 ### Gin adapter for Function URL
 
-A Gin adapter for API Gateway V1 and V2 are already available from https://github.com/awslabs/aws-lambda-go-api-proxy.
-The [lambda/functionurl/gin](lambda/functionurl/gin) module provides an adapter specifically for Function URL events
-with both BUFFERED (which, technically, is no different from API Gateway V2/HTTP events) and RESPONSE_STREAM mode which
-uses https://github.com/aws/aws-lambda-go/tree/main/lambdaurl under the hood.
+A Gin adapter for API Gateway V1 and V2 are already available from github.com/awslabs/aws-lambda-go-api-proxy.
+The [lambda/gin-function-url](lambda/gin-function-url) module (named `ginadapter`)
+provides an adapter specifically for Function URL events with both BUFFERED (which, technically, is no different from
+API Gateway V2/HTTP events) and RESPONSE_STREAM mode which uses
+[`github.com/aws/aws-lambda-go/lambdaurl`](https://github.com/aws/aws-lambda-go).
+
+```go
+r := gin.Default()
+// start the Lambda handler either in BUFFERED or STREAM_RESPONSE mode.
+ginadapter.StartBuffered(r)
+ginadapter.StartStream(r)
+
+```
+
+### Very opinionated gin session middleware with DynamoDB backend
+
+There are already several excellent DynamoDB store plugins for
+[`github.com/gin-contrib/sessions`](https://github.com/gin-contrib/sessions) (well, mostly from
+[`github.com/gorilla/sessions`](https://github.com/gorilla/sessions)). The 
+[gin-sessions-dynamodb](gin-sessions-dynamodb) module (named `sessions`) does something a bit different: you must bring
+your own struct that uses `dynamodbav` struct tags to model the DynamoDB table that contains session data. When handling
+a request, you can either work directly with a pointer to this struct, or use a type-safe `sessions.Session`-compatible
+implementation that can return an error or panic if you attempt to set a field with the wrong type.
 
 ```go
 type Session struct {
-	SessionId string `dynamodbav:"sessionId" tableName:"session"`
-	User      *User  `dynamodbav:"user,omitempty"`
+	Id   string `dynamodbav:"sessionId,hashkey" tableName:"session"`
+	User *User  `dynamodbav:"user"`
 }
 
 type User struct {
@@ -92,66 +111,33 @@ type User struct {
 }
 
 r := gin.Default()
-
-// this example uses github.com/nguyengg/go-aws-commons/gin-sessions-dynamodb to provide session management.
-r.GET("/",
-	sessions.Sessions[Session]("sid"),
-	ginadapter.RequireGroupMembership(func(c *gin.Context) (authenticated bool, groups rules.Groups) {
-		var s *Session = sessions.Get[Session](c)
-		if s.User == nil {
-			return false, nil
-		}
-		return true, s.User.Groups
-	}, rules.AllOf("a", "b"), rules.OneOf("b", "c")))
-
-// start the Lambda handler either in BUFFERED or STREAM_RESPONSE mode.
-ginadapter.StartBuffered(r)
-ginadapter.StartStream(r)
-
-```
-
-See [lambda/functionurl/gin](lambda/functionurl/gin) for examples.
-
-### Very opinionated gin session middleware with DynamoDB backend
-
-There are already several excellent DynamoDB store plugins for github.com/gin-contrib/sessions (well, mostly from
-github.com/gorilla/sessions). [gin-sessions-dynamodb](gin-sessions-dynamodb) does something a bit different: you must
-bring your own struct that uses `dynamodbav` struct tags to model the DynamoDB table that contains session data (see
-[ddb](#dynamodb-goodies) for an example on how to model these attributes) When handling a request, you can either work
-directly with a pointer to this struct, or use a type-safe `sessions.Session`-compatible implementation that can return
-an error or panic if you attempt to set a field with the wrong type.
-
-```go
-type MySession struct {
-    Id   string `dynamodbav:"sessionId,hashkey" tableName:"session"`
-    User string `dynamodbav:"user"`
-}
-
-
-r := gin.Default()
-r.Use(sessions.Sessions[MySession]("sid", func(s *sessions.Session) {
-    // if you don't explicitly provide a client, `config.LoadDefaultConfig` is used similar to this example.
-    s.Client = dynamodb.NewFromConfig(cfg)
+r.Use(sessions.Sessions[Session]("sid", func(s *sessions.Session) {
+	// if you don't explicitly provide a client, `config.LoadDefaultConfig` is used similar to this example.
+	s.Client = dynamodb.NewFromConfig(cfg)
 }))
-r.GET("/", func(c *gin.Context) {
-    // this is type-safe way to interaction with my session struct.
-    var mySession *MySession = sessions.Get[MySession](c)
-    mySession.User = "henry"
-    if err = sessions.Save(c); err != nil {
-        _ = c.AbortWithError(http.StatusBadGateway, err)
-        return
-    }
 
-    // alternatively, I can use the sessions.Session interface "compatible" with gin and gorilla.
-    s := sessions.Default(c)
-    s.Set("user", "henry")
-    if err = s.Save(); err != nil {
-        _ = c.AbortWithError(http.StatusBadGateway, err)
-        return
-    }
+r.GET("/", func(c *gin.Context) {
+	// this is type-safe way to interaction with my session struct.
+	var mySession *Session = sessions.Get[Session](c)
+	mySession.User = &User{Sub: "henry", Groups: []string{"poweruser"}}
+	if err = sessions.Save(c); err != nil {
+		_ = c.AbortWithError(http.StatusBadGateway, err)
+		return
+	}
 })
+
+// the module also provides a basic middleware to verify user from the session is authorised based on group
+// membership.
+r.GET("/protected/resource", groups.MustHave(func(c *gin.Context) (bool, groups.Groups) {
+	user := sessions.Get[Session](c).User
+	if user == nil {
+		return false, nil
+	}
+
+	return true, user.Groups
+}, groups.OneOf("canReadResource", "canWriteResource")))
+
 ```
-See [gin-sessions-dynamodb](gin-sessions-dynamodb) for examples.
 
 ## Convert DynamoDB last evaluated key to opaque token; create and validate CSRF tokens
 
@@ -196,7 +182,7 @@ if !ok {
 Two sibling modules, [s3reader](s3reader) and [s3writer](s3writer), were created when the excellent
 [`github.com/aws/aws-sdk-go-v2/feature/s3/manager`](https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/feature/s3/manager)
 library falls short in terms of progress monitoring; I want  nice progressbar that accurately show me both progress and
-time remaining estimate (https://github.com/schollz/progressbar my go-to choice). Furthermore, my 
+time remaining estimate (https://github.com/schollz/progressbar is my go-to choice). Furthermore, my 
 [xy3](https://github.com/nguyengg/xy3) project needs a way to read backwards an S3 object in order to find ZIP central
 directory (which, again, provides a better progress estimate of how many files I need to extract). As a result, I
 created the modules with the explicit goal of accurate progress report. If you only need to download an entire S3 object

@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/nguyengg/go-aws-commons/ddb.svg)](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/ddb)
 
-This package adds optimistic locking and auto-generated timestamps by modifying the expressions being created as part of
+This module adds optimistic locking and auto-generated timestamps by modifying the expressions being created as part of
 a DynamoDB service call.
 
 ## Usage

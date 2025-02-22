@@ -1,4 +1,60 @@
-package rules
+package groups
+
+import (
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+)
+
+// MustHave returns a gin middleware that aborts the request with either http.StatusUnauthorized or
+// http.StatusForbidden depending on whether there exists a user with the current session whose group membership
+// satisfies the given rules.
+//
+// The middleware must be given a function that can retrieve the user's group from the current request. The argument fn
+// returns whether the session is authenticated and the groups associated with the user. If session is not authenticated
+// then the request is aborted with http.StatusUnauthorized. If the session is authenticated but the groups do not
+// satisfy the rules, the request is aborted with http.StatusForbidden. Otherwise, the request goes through.
+//
+// Usage:
+//
+//	type MySession struct {
+//		SessionId string `dynamodbav:"sessionId,hashkey" tableName:"sessions"`
+//		User      *User `dynamodbav:"user,omitempty"`
+//	}
+//
+//	type User struct {
+//		Sub    string `dynamodbav:"user"`
+//		Groups []string `dynamodbav:"groups,stringset"
+//	}
+//
+//	r := gin.Default()
+//	r.Use(sessions.Session[MySession]("sid"))
+//	r.GET(
+//		"/protected/resource",
+//		groups.MustHave(func (c *gin.Context) (bool, groups.Groups) {
+//			var s *Session = sessions.Get[MySession](c)
+//			if s.User == nil {
+//				return false, nil
+//			}
+//
+//			return true, s.User.Groups
+//		}, groups.OneOf("readResource", "writeResource"))
+func MustHave(fn func(*gin.Context) (authenticated bool, groups Groups), rule Rule, more ...Rule) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ok, groups := fn(c)
+		if !ok {
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+
+		if !groups.Test(rule, more...) {
+			c.AbortWithStatus(http.StatusForbidden)
+			return
+		}
+
+		c.Next()
+	}
+}
 
 // Groups is a string list, preferably a string set.
 type Groups []string

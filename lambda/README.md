@@ -4,9 +4,9 @@
 
 ## Convenient handler wrappers
 
-The various `StartABC` functions wrap your Lambda handler so that a [Metrics](../metrics) instance is available from
-context and will be logged with sensible default metrics (start and end time, latency, fault, etc.) upon return of your
-Lambda handler.
+The various `StartABC` functions wrap your Lambda handler so that a `Metrics` instance (from
+[`github.com/nguyengg/go-aws-commons/metrics`](../metrics)) is available from context and will be logged with sensible
+default metrics (start and end time, latency, fault, etc.) upon return of your Lambda handler.
 
 ```go
 package main
@@ -41,46 +41,33 @@ func main() {
 
 ## Gin adapter for Function URL
 
-A Gin adapter for API Gateway V1 and V2 are already available from https://github.com/awslabs/aws-lambda-go-api-proxy.
-This [module](functionurl/gin) provides an adapter specifically for Function URL events with both BUFFERED (which,
-technically, is no different from API Gateway V2/HTTP events) and RESPONSE_STREAM mode which uses
-https://github.com/aws/aws-lambda-go/tree/main/lambdaurl.
-
-Furthermore, there's a neat middleware that can be used to add authorisation check.
+A Gin adapter for API Gateway V1 and V2 are already available from github.com/awslabs/aws-lambda-go-api-proxy.
+The [gin-function-url](gin-function-url) module (named `ginadapter`) provides an adapter specifically for Function URL
+events with both BUFFERED (which, technically, is no different from API Gateway V2/HTTP events) and RESPONSE_STREAM mode
+which uses [`github.com/aws/aws-lambda-go/lambdaurl`](https://github.com/aws/aws-lambda-go).
 
 ```go
 package main
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
-	sessions "github.com/nguyengg/go-aws-commons/gin-sessions-dynamodb"
-	ginadapter "github.com/nguyengg/go-aws-commons/lambda/functionurl/gin"
-	"github.com/nguyengg/go-aws-commons/lambda/functionurl/gin/rules"
+	"github.com/gin-gonic/gin/render"
+	ginadapter "github.com/nguyengg/go-aws-commons/lambda/gin-function-url"
 )
-
-type Session struct {
-	SessionId string `dynamodbav:"sessionId" tableName:"session"`
-	User      *User  `dynamodbav:"user,omitempty"`
-}
-
-type User struct {
-	Sub    string   `dynamodbav:"sub"`
-	Groups []string `dynamodbav:"groups,stringset"`
-}
 
 func main() {
 	r := gin.Default()
+	r.GET("/", func(c *gin.Context) {
+		c.Render(http.StatusOK, render.String{
+			Format: "hello, world!",
+		})
+	})
 
-	// this example uses github.com/nguyengg/go-aws-commons/gin-sessions-dynamodb to provide session management.
-	r.GET("/",
-		sessions.Sessions[Session]("sid"),
-		ginadapter.RequireGroupMembership(func(c *gin.Context) (authenticated bool, groups rules.Groups) {
-			var s *Session = sessions.Get[Session](c)
-			if s.User == nil {
-				return false, nil
-			}
-			return true, s.User.Groups
-		}, rules.AllOf("a", "b"), rules.OneOf("b", "c")))
+	// start the Lambda handler either in BUFFERED or STREAM_RESPONSE mode.
+	ginadapter.StartBuffered(r)
+	ginadapter.StartStream(r)
 }
 
 ```
@@ -128,6 +115,19 @@ func main() {
 [getenv](getenv) adds abstraction on top of this so that I can easily swap out how the variable is retrieved.
 
 ```go
+package main
+
+import (
+	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
+	"github.com/aws/aws-sdk-go-v2/service/ssm"
+	"github.com/nguyengg/go-aws-commons/lambda/getenv"
+)
+
 func main() {
 	// while prototyping, you can retrieve from environment variable
 	v := getenv.Env("TEST")
