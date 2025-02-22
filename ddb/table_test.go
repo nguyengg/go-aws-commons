@@ -11,11 +11,11 @@ import (
 // both NewTableFromStruct and NewTable should return exact same values.
 func TestNewTable(t *testing.T) {
 	type Test struct {
-		Id           string    `dynamodbav:",hashkey" tableName:""`
-		Sort         string    `dynamodbav:",sortkey"`
-		Version      int64     `dynamodbav:",version"`
-		CreatedTime  time.Time `dynamodbav:",createdTime"`
-		ModifiedTime time.Time `dynamodbav:",modifiedTime,unixtime"`
+		Id           string    `dynamodbav:"id,hashkey" tableName:""`
+		Sort         string    `dynamodbav:"-,sortkey"`
+		Version      int64     `dynamodbav:"-,version"`
+		CreatedTime  time.Time `dynamodbav:"-,createdTime"`
+		ModifiedTime time.Time `dynamodbav:"-,modifiedTime,unixtime"`
 	}
 
 	a, err := NewTableFromStruct(Test{})

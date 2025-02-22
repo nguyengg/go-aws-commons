@@ -126,7 +126,7 @@ func (b *Builder) createDeleteItem(key interface{}, opts *DeleteOptions, optFns 
 	iv := reflect.Indirect(reflect.ValueOf(key))
 
 	if versionAttr := attrs.Version; opts.EnableOptimisticLocking && versionAttr != nil {
-		version, err := versionAttr.Get(iv)
+		version, err := versionAttr.GetFieldValue(iv)
 		if err != nil {
 			return nil, fmt.Errorf("get version value error: %w", err)
 		}

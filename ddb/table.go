@@ -1,11 +1,19 @@
 package ddb
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
+)
 
-	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
+var (
+	// ErrNoAttribute is returned by Table.Get if there is no attribute with the requested name.
+	ErrNoAttribute = errors.New("ddb: named attribute not present")
+
+	byteSliceType = reflect.TypeOf([]byte(nil))
+	timeType      = reflect.TypeOf(time.Time{})
 )
 
 // Table is a collection of Attribute where the hash key must always be present.
@@ -27,9 +35,8 @@ import (
 //	Field time.Time `dynamodbav:"-,createdTime,unixtime"`
 //	Field time.Time `dynamodbav:"-,modifiedTime,unixtime"`
 //
-// Other attributes tagged with `dynamodbav` can also be modeled by Table by passing a filter function to
-// NewTableFromStructWithFilter or NewTableWithFilter. Note that the filter only affects attributes that can be returned
-// with [Table.Get]. The five attributes described above are always stored by the Table.
+// All other attributes tagged with `dynamodbav` are also stored. Attributed with no names such as `dynamodbav:"-"` are
+// ignored.
 type Table struct {
 	TableName    string
 	HashKey      *Attribute
@@ -37,13 +44,38 @@ type Table struct {
 	Version      *Attribute
 	CreatedTime  *Attribute
 	ModifiedTime *Attribute
-	others       map[string]*Attribute
+
+	// All contains all attributes parsed from `dynamodbav` struct tags, including the special ones such has HashKey
+	// and SortKey.
+	//
+	// The map's key is the Attribute.AttributeName. Use Table.Get for a way to retrieve the value of an attribute
+	// given its struct.
+	All map[string]*Attribute
+
+	// inType is the original struct type that was used to create the table.
+	inType reflect.Type
+}
+
+// TableOptions customises the behaviour of the various methods to create parse struct tags for a Table.
+type TableOptions struct {
+	// Validator can be used to fail parsing early.
+	//
+	// Any non-nil error will stop the parsing process and is returned immediately to caller.
+	Validator func(*Attribute) error
+	// MustHaveSortKey, if true, will fail parsing if the struct does not have any field tagged as
+	// `dynamodbav:",sortkey"`.
+	MustHaveSortKey bool
+	// MustHaveVersion, if true, will fail parsing if the struct does not have any field tagged as
+	// `dynamodbav:",version"`.
+	MustHaveVersion bool
+	// MustHaveTimestamps, if true, will fail parsing if the struct does not have any field tagged as
+	// `dynamodbav:",createdTime" or `dynamodbav:",modifiedTime".
+	MustHaveTimestamps bool
 }
 
 // NewTableFromStruct parses the struct tags given by an instance of the struct.
 //
-// Returns an error if there are validation issues. By default, all attributes are parsed and stored in the returned
-// Table. To have control and validation over the attributes, use NewTableFromStructWithFilter instead.
+// Returns an InvalidModelErr error if there are validation issues.
 //
 // It is recommended to add a unit test and verify your struct is modeled correctly with NewTableFromStruct.
 //
@@ -53,26 +85,13 @@ type Table struct {
 //		_, err := NewTableFromStruct(MyStruct{})
 //		assert.NoError(t, err)
 //	}
-func NewTableFromStruct(in interface{}) (*Table, error) {
-	return NewTableWithFilter(reflect.TypeOf(in), func(attribute *Attribute) (bool, error) {
-		return true, nil
-	})
-}
-
-// NewTableFromStructWithFilter is a variant of NewTableFromStruct that allows caller to filter and validate additional
-// fields.
-//
-// The filter function must return true in order for the field to be modeled in Table. If there is a validation error
-// with the attribute (its type is not expected, etc.), the function may return an error which will stop the parsing
-// process and return the error to caller. Hash and sort keys will always be stored.
-func NewTableFromStructWithFilter(in interface{}, filter func(*Attribute) (bool, error)) (*Table, error) {
-	return NewTableWithFilter(reflect.TypeOf(in), filter)
+func NewTableFromStruct(in interface{}, optFns ...func(*TableOptions)) (*Table, error) {
+	return NewTable(reflect.TypeOf(in), optFns...)
 }
 
 // NewTable parses the struct tags given by its type.
 //
-// Returns an error if there are validation issues. By default, all attributes are parsed and stored in the returned
-// Table.
+// Returns an InvalidModelErr error if there are validation issues.
 //
 // It is recommended to add a unit test and verify your struct is modeled correctly with NewTableFromStruct.
 //
@@ -82,26 +101,15 @@ func NewTableFromStructWithFilter(in interface{}, filter func(*Attribute) (bool,
 //		_, err := NewTable[MyStruct]()
 //		assert.NoError(t, err)
 //	}
-func NewTable(t reflect.Type) (*Table, error) {
-	return NewTableWithFilter(t, func(attribute *Attribute) (bool, error) {
-		return true, nil
-	})
-}
-
-// NewTableWithFilter is a variant of NewTable that allows caller to filter and validate additional
-// fields.
-//
-// The filter function must return true in order for the field to be modeled in Table. If there is a validation error
-// with the attribute (its type is not expected, etc.), the function may return an error which will stop the parsing
-// process and return the error to caller. Hash and sort keys will always be stored.
-func NewTableWithFilter(in reflect.Type, filter func(*Attribute) (bool, error)) (*Table, error) {
-	return newTable(in, filter, attributevalue.NewEncoder())
-}
-
-// newTable requires an encoder to be passed.
-func newTable(in reflect.Type, filter func(*Attribute) (bool, error), encoder *attributevalue.Encoder) (table *Table, err error) {
+func NewTable(in reflect.Type, optFns ...func(*TableOptions)) (table *Table, err error) {
 	in = DereferencedType(in)
-	table = &Table{others: make(map[string]*Attribute)}
+
+	opts := &TableOptions{}
+	for _, fn := range optFns {
+		fn(opts)
+	}
+
+	table = &Table{All: make(map[string]*Attribute), inType: in}
 
 	var ok bool
 
@@ -122,65 +130,67 @@ func newTable(in reflect.Type, filter func(*Attribute) (bool, error), encoder *a
 			continue
 		}
 
-		if _, ok = table.others[name]; ok {
-			return nil, fmt.Errorf(`found multiple attributes using name "%s" in type "%s"`, name, in.Name())
+		if _, ok = table.All[name]; ok {
+			return nil, InvalidModelErr{in, fmt.Errorf(`found multiple attributes using name "%s"`, name)}
 		}
 
-		attr := &Attribute{StructField: structField, AttributeName: name, encoder: encoder}
+		attr := &Attribute{StructField: structField, AttributeName: name}
+		table.All[name] = attr
+
 		for _, tag = range tags[1:] {
 			switch tag {
 			case "hashkey":
 				if table.HashKey != nil {
-					return nil, fmt.Errorf(`found multiple hashkey fields in type "%s"`, in.Name())
+					return nil, InvalidModelErr{in, fmt.Errorf("found multiple hashkey fields")}
 				}
 
 				if ok = validKeyAttribute(structField); !ok {
-					return nil, fmt.Errorf(`unsupported hashkey field type "%s"`, structField.Type)
+					return nil, InvalidModelErr{in, fmt.Errorf(`unsupported hashkey field type "%s"`, structField.Type)}
 				}
 
 				table.HashKey = attr
 				if v, ok := structField.Tag.Lookup("tableName"); !ok {
-					return nil, fmt.Errorf(`missing tableName tag on hashkey field`)
+					return nil, InvalidModelErr{in, fmt.Errorf(`missing tableName tag on hashkey field`)}
 				} else if v != "" {
 					table.TableName = v
 				}
 			case "sortkey":
 				if table.SortKey != nil {
-					return nil, fmt.Errorf(`found multiple sortkey fields in type "%s"`, in.Name())
+					return nil, InvalidModelErr{in, fmt.Errorf("found multiple sortkey fields")}
 				}
 
 				if ok = validKeyAttribute(structField); !ok {
-					return nil, fmt.Errorf(`unsupported sortkey field type "%s"`, structField.Type)
+					return nil, InvalidModelErr{in, fmt.Errorf(`unsupported sortkey field type "%s"`, structField.Type)}
 				}
 
 				table.SortKey = attr
 			case "version":
 				if table.Version != nil {
-					return nil, fmt.Errorf(`found multiple version fields in type "%s"`, in.Name())
+					return nil, InvalidModelErr{in, fmt.Errorf("found multiple version fields")}
 				}
 
 				if !validVersionAttribute(structField) {
-					return nil, fmt.Errorf(`unsupported version field type "%s"`, structField.Type)
+					return nil, InvalidModelErr{in, fmt.Errorf(`unsupported version field type "%s"`, structField.Type)}
 				}
 
 				table.Version = attr
 			case "createdTime":
 				if table.CreatedTime != nil {
-					return nil, fmt.Errorf(`found multiple createdTime fields in type "%s"`, in.Name())
+					return nil, InvalidModelErr{in, fmt.Errorf("found multiple createdTime fields")}
 				}
 
 				if !validTimeAttribute(structField) {
-					return nil, fmt.Errorf(`unsupported createdTime field type "%s"`, structField.Type)
+					return nil, InvalidModelErr{in, fmt.Errorf(`unsupported createdTime field type "%s"`, structField.Type)}
 				}
 
 				table.CreatedTime = attr
 			case "modifiedTime":
 				if table.ModifiedTime != nil {
-					return nil, fmt.Errorf(`found multiple modifiedTime fields in type "%s"`, in.Name())
+					return nil, InvalidModelErr{in, fmt.Errorf("found multiple modifiedTime fields")}
 				}
 
 				if !validTimeAttribute(structField) {
-					return nil, fmt.Errorf(`unsupported modifiedTime field type "%s"`, structField.Type)
+					return nil, InvalidModelErr{in, fmt.Errorf(`unsupported modifiedTime field type "%s"`, structField.Type)}
 				}
 
 				table.ModifiedTime = attr
@@ -191,21 +201,104 @@ func newTable(in reflect.Type, filter func(*Attribute) (bool, error), encoder *a
 			}
 		}
 
-		if ok, err = filter(attr); err != nil {
-			return nil, err
-		} else if ok {
-			table.others[attr.AttributeName] = attr
+		if opts.Validator != nil {
+			if err = opts.Validator(attr); err != nil {
+				return nil, InvalidModelErr{In: in, Cause: fmt.Errorf("validate error: %w", err)}
+			}
 		}
+	}
+
+	if table.HashKey == nil {
+		return nil, fmt.Errorf(`no hashkey field in type "%s"`, in.Name())
+	}
+	if opts.MustHaveVersion && table.Version == nil {
+		return nil, fmt.Errorf(`no version field in type "%s"`, in.Name())
+	}
+	if opts.MustHaveTimestamps && table.CreatedTime == nil && table.ModifiedTime == nil {
+		return nil, fmt.Errorf(`no timestamp fields in type "%s"`, in.Name())
 	}
 
 	return table, nil
 }
 
-// Get returns the attribute with the given `dynamodbav` struct tag name.
+// Get returns the value of the attribute with the given name in the given struct v.
 //
-// This is not the name of the struct field (which is usually capital case to be exported).
-func (t *Table) Get(name string) *Attribute {
-	return t.others[name]
+// Returns TypeMismatchErr if in's type is not the same as the struct type that was used to create the Table. Return
+// ErrNoAttribute if Table.All contains no attribute with the given name.
+//
+// Usage example:
+//
+//	type MyStruct struct {
+//		Name string `dynamodbav:"name"`
+//	}
+//
+//	t, _ := NewTableFromStruct(&MyStruct{})
+//	name, _ := t.Get(&MyStruct{Name: "hello"}, "name") // notice the lowercase "name" matching the dynamodbav tag.
+//	fmt.Printf("%s", name.(string)); // # hello
+func (t *Table) Get(in interface{}, name string) (_ interface{}, err error) {
+	if inType := DereferencedType(reflect.TypeOf(in)); inType != t.inType {
+		return nil, TypeMismatchErr{Expected: t.inType, Actual: t.inType}
+	}
+
+	a, ok := t.All[name]
+	if !ok {
+		return nil, ErrNoAttribute
+	}
+
+	v, err := a.GetFieldValue(reflect.ValueOf(in))
+	if err != nil {
+		return nil, err
+	}
+
+	return v.Interface(), nil
+}
+
+// MustGet is a variant of Get that panics instead of returning any error.
+//
+// Usage example:
+//
+//	type MyStruct struct {
+//		Name string `dynamodbav:"-"`
+//	}
+//
+//	t, _ := NewTableFromStruct(&MyStruct{})
+//	var name string = t.MustGet(MyStruct{Name: "hello"}).(string)
+func (t *Table) MustGet(in interface{}, name string) interface{} {
+	v, err := t.Get(in, name)
+	if err != nil {
+		panic(err)
+	}
+
+	return v
+}
+
+// InvalidModelErr is returned by NewTable or NewTableFromStruct if the struct type is invalid.
+type InvalidModelErr struct {
+	In    reflect.Type
+	Cause error
+}
+
+func (e InvalidModelErr) Error() string {
+	return fmt.Sprintf("ddb: parse struct type %s error: %s", e.In, e.Cause)
+}
+
+// TypeMismatchErr is returned by Table.Get if the type of the argument "in" does not match the Table's type.
+type TypeMismatchErr struct {
+	Expected, Actual reflect.Type
+}
+
+func (e TypeMismatchErr) Error() string {
+	return fmt.Sprintf("ddb: mismatched type: expected %s, got %s", e.Expected, e.Actual)
+}
+
+// DereferencedType returns the innermost type that is not reflect.Interface or reflect.Ptr.
+func DereferencedType(t reflect.Type) reflect.Type {
+	for k := t.Kind(); k == reflect.Interface || k == reflect.Ptr; {
+		t = t.Elem()
+		k = t.Kind()
+	}
+
+	return t
 }
 
 func validKeyAttribute(field reflect.StructField) bool {

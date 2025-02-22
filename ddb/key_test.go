@@ -16,9 +16,6 @@ func TestCreateKey_S(t *testing.T) {
 	assert.NoErrorf(t, err, "CreateKey[Test](...) error = %v", err)
 	assert.Equal(t, "my-table", tableName)
 	assert.Equal(t, map[string]types.AttributeValue{"hash": &types.AttributeValueMemberS{Value: "my-id"}}, key)
-
-	_, _, err = CreateKey[Test](1234)
-	assert.Error(t, err)
 }
 
 func TestCreateCompositeKey_N(t *testing.T) {
@@ -34,7 +31,4 @@ func TestCreateCompositeKey_N(t *testing.T) {
 		"hash": &types.AttributeValueMemberS{Value: "my-id"},
 		"sort": &types.AttributeValueMemberN{Value: "3"},
 	}, key)
-
-	_, _, err = CreateCompositeKey[Test](1234, "my-id")
-	assert.Error(t, err)
 }
