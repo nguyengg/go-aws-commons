@@ -34,45 +34,6 @@ if len(getItemOutput) == 0 {
 
 See [ddb](ddb) for more examples.
 
-## Lambda handler wrappers with sensible defaults
-
-The various `StartABC` functions wrap your Lambda handler so that a [Metrics](metrics) instance is available from
-context and will be logged with sensible default metrics (start and end time, latency, fault, etc.) upon return of your
-Lambda handler.
-
-```go
-package main
-
-import (
-	"context"
-
-	"github.com/aws/aws-lambda-go/events"
-	"github.com/nguyengg/go-aws-commons/lambda"
-	"github.com/nguyengg/go-aws-commons/metrics"
-)
-
-func main() {
-	// you can use a specific specialisation for your handler like DynamoDB stream event below.
-	lambda.StartDynamoDBEventHandleFunc(func(ctx context.Context, event events.DynamoDBEvent) (events.DynamoDBEventResponse, error) {
-		m := metrics.Ctx(ctx)
-		m.IncrementCount("myMetric")
-		return events.DynamoDBEventResponse{}, nil
-	})
-
-	// or you can use the generic StartHandlerFunc template if there isn't a specialisation.
-	lambda.StartHandlerFunc(func(ctx context.Context, event events.DynamoDBEvent) (events.DynamoDBEventResponse, error) {
-		m := metrics.Ctx(ctx)
-		m.IncrementCount("myMetric")
-		return events.DynamoDBEventResponse{}, nil
-	})
-
-	// when your handler returns, the Metrics instance will be logged to standard error stream.
-}
-
-```
-
-See [lambda](lambda) for more examples.
-
 ## Logging SDK latency metrics and other custom metrics
 
 AWS SDK Go v2 middleware to measure and emit latency and fault metrics on the AWS requests. Additionally, you can also
@@ -84,44 +45,113 @@ cfg, _ := config.LoadDefaultConfig(context.Background(), metrics.WithClientSideM
 dynamodbClient := dynamodb.NewFromConfig(cfg)
 ```
 
-Once processing finishes, logs the `Metrics` instance with zerolog to get JSON output like this:
-```json
-{
-   "startTime": 1739504515510,
-   "endTime": "Fri, 14 Feb 2025 03:41:57 GMT",
-   "time": "1602.040 ms",
-   "statusCode": 200,
-   "counters": {
-      "S3.GetObject.ServerFault": 0,
-      "S3.GetObject.UnknownFault": 0,
-      "DynamoDB.Query.ClientFault": 0,
-      "DynamoDB.Query.ServerFault": 0,
-      "S3.GetObject.ClientFault": 0,
-      "DynamoDB.Query.UnknownFault": 0,
-      "2xx": 1,
-      "4xx": 0,
-      "5xx": 0
-   },
-   "timings": {
-      "S3.GetObject": {
-         "sum": "64.680 ms",
-         "min": "64.680 ms",
-         "max": "64.680 ms",
-         "n": 1,
-         "avg": "64.680 ms"
-      },
-      "DynamoDB.Query": {
-         "sum": "74.255 ms",
-         "min": "74.255 ms",
-         "max": "74.255 ms",
-         "n": 1,
-         "avg": "74.255 ms"
-      }
-   }
-}
+Once processing finishes, logs the `Metrics` instance with zerolog to get JSON output like described in
+[metrics](metrics).
+
+## Lambda handler wrappers with sensible defaults
+
+The various `StartABC` functions wrap your Lambda handler so that a [Metrics](metrics) instance is available from
+context and will be logged with sensible default metrics (start and end time, latency, fault, etc.) upon return of your
+Lambda handler (see [metrics](metrics) for an example on the JSON log message).
+
+```go
+// you can use a specific specialisation for your handler like DynamoDB stream event below.
+lambda.StartDynamoDBEventHandleFunc(func(ctx context.Context, event events.DynamoDBEvent) (events.DynamoDBEventResponse, error) {
+	m := metrics.Ctx(ctx)
+	m.IncrementCount("myMetric")
+	return events.DynamoDBEventResponse{}, nil
+})
+
+// or you can use the generic StartHandlerFunc template if there isn't a specialisation.
+lambda.StartHandlerFunc(func(ctx context.Context, event events.DynamoDBEvent) (events.DynamoDBEventResponse, error) {
+	m := metrics.Ctx(ctx)
+	m.IncrementCount("myMetric")
+	return events.DynamoDBEventResponse{}, nil
+})
+
 ```
 
-See [metrics](metrics) for more examples.
+See [lambda](lambda) for more examples.
+
+### Gin adapter for Function URL
+
+A Gin adapter for API Gateway V1 and V2 are already available from https://github.com/awslabs/aws-lambda-go-api-proxy.
+The [lambda/functionurl/gin](lambda/functionurl/gin) module provides an adapter specifically for Function URL events
+with both BUFFERED (which, technically, is no different from API Gateway V2/HTTP events) and RESPONSE_STREAM mode which
+uses https://github.com/aws/aws-lambda-go/tree/main/lambdaurl under the hood.
+
+```go
+type Session struct {
+	SessionId string `dynamodbav:"sessionId" tableName:"session"`
+	User      *User  `dynamodbav:"user,omitempty"`
+}
+
+type User struct {
+	Sub    string   `dynamodbav:"sub"`
+	Groups []string `dynamodbav:"groups,stringset"`
+}
+
+r := gin.Default()
+
+// this example uses github.com/nguyengg/go-aws-commons/gin-sessions-dynamodb to provide session management.
+r.GET("/",
+	sessions.Sessions[Session]("sid"),
+	ginadapter.RequireGroupMembership(func(c *gin.Context) (authenticated bool, groups rules.Groups) {
+		var s *Session = sessions.Get[Session](c)
+		if s.User == nil {
+			return false, nil
+		}
+		return true, s.User.Groups
+	}, rules.AllOf("a", "b"), rules.OneOf("b", "c")))
+
+// start the Lambda handler either in BUFFERED or STREAM_RESPONSE mode.
+ginadapter.StartBuffered(r)
+ginadapter.StartStream(r)
+
+```
+
+See [lambda/functionurl/gin](lambda/functionurl/gin) for examples.
+
+### Very opinionated gin session middleware with DynamoDB backend
+
+There are already several excellent DynamoDB store plugins for github.com/gin-contrib/sessions (well, mostly from
+github.com/gorilla/sessions). [gin-sessions-dynamodb](gin-sessions-dynamodb) does something a bit different: you must
+bring your own struct that uses `dynamodbav` struct tags to model the DynamoDB table that contains session data (see
+[ddb](#dynamodb-goodies) for an example on how to model these attributes) When handling a request, you can either work
+directly with a pointer to this struct, or use a type-safe `sessions.Session`-compatible implementation that can return
+an error or panic if you attempt to set a field with the wrong type.
+
+```go
+type MySession struct {
+    Id   string `dynamodbav:"sessionId,hashkey" tableName:"session"`
+    User string `dynamodbav:"user"`
+}
+
+
+r := gin.Default()
+r.Use(sessions.Sessions[MySession]("sid", func(s *sessions.Session) {
+    // if you don't explicitly provide a client, `config.LoadDefaultConfig` is used similar to this example.
+    s.Client = dynamodb.NewFromConfig(cfg)
+}))
+r.GET("/", func(c *gin.Context) {
+    // this is type-safe way to interaction with my session struct.
+    var mySession *MySession = sessions.Get[MySession](c)
+    mySession.User = "henry"
+    if err = sessions.Save(c); err != nil {
+        _ = c.AbortWithError(http.StatusBadGateway, err)
+        return
+    }
+
+    // alternatively, I can use the sessions.Session interface "compatible" with gin and gorilla.
+    s := sessions.Default(c)
+    s.Set("user", "henry")
+    if err = s.Save(); err != nil {
+        _ = c.AbortWithError(http.StatusBadGateway, err)
+        return
+    }
+})
+```
+See [gin-sessions-dynamodb](gin-sessions-dynamodb) for examples.
 
 ## Convert DynamoDB last evaluated key to opaque token; create and validate CSRF tokens
 
@@ -161,22 +191,20 @@ if !ok {
 }
 ```
 
-## Implements io.ReadSeeker, io.ReaderAt, and io.WriterTo using S3 ranged GetObject
+## S3 io.ReadSeeker using S3 ranged GetObject and io.Writer 
 
-I wrote this module when [s3/manager](https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/feature/s3/manager) didn't make it
-easy to provide progress monitoring. Additionally, my [xy3](https://github.com/nguyengg/xy3) project needs a way to read
-backwards an S3 object in order to find ZIP central directory. As a result, I wrote this module with the explicit goal
-of implementing `io.Seeker` and `io.ReaderAt` for S3 objects. If you only need to download an entire S3 object to file
-or to memory, [s3/manager](https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/feature/s3/manager) may suffice. See
-[s3reader](s3reader) for examples.
+Two sibling modules, [s3reader](s3reader) and [s3writer](s3writer), were created when the excellent
+[`github.com/aws/aws-sdk-go-v2/feature/s3/manager`](https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/feature/s3/manager)
+library falls short in terms of progress monitoring; I want  nice progressbar that accurately show me both progress and
+time remaining estimate (https://github.com/schollz/progressbar my go-to choice). Furthermore, my 
+[xy3](https://github.com/nguyengg/xy3) project needs a way to read backwards an S3 object in order to find ZIP central
+directory (which, again, provides a better progress estimate of how many files I need to extract). As a result, I
+created the modules with the explicit goal of accurate progress report. If you only need to download an entire S3 object
+to file or to memory, `s3/manager` more than suffices. If you only need to upload an entire file, you can also
+`io.TeeReader` your file with https://github.com/schollz/progressbar (which implements `io.Writer`), but this will only
+report progress on reading the file, not uploading the file.
 
-## Implements io.Writer and io.ReaderFrom to upload to S3
-
-Similar to [s3reader](s3reader), I wrote this module when I needed a way to provide progress monitoring when uploading
-files using [s3/manager](https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/feature/s3/manager). I could have used an
-`io.TeeReader` passing an [io.Writer progressbar](https://github.com/schollz/progressbar), but this will only report
-progress on reading the file, not uploading the file. As a result, I wrote this module with the explicit goal of
-accurately showing upload progress. See [s3writer](s3writer) for examples.
+See [s3reader](s3reader) and [s3writer](s3writer) for examples.
 
 ## Protect EC2 instances from being scaled down while busy
 

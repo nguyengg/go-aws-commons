@@ -1,4 +1,4 @@
-# Very opinionated gin session management middleware implementation backed by DynamoDB
+# Very opinionated gin session middleware with DynamoDB backend
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/nguyengg/go-aws-commons/gin-sessions-dynamodb.svg)](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/gin-sessions-dynamodb)
 
