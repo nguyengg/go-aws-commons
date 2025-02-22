@@ -1,5 +1,7 @@
 # Very opinionated gin session management middleware implementation backed by DynamoDB
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/nguyengg/go-aws-commons/gin-sessions-dynamodb.svg)](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/gin-sessions-dynamodb)
+
 There are already several excellent DynamoDB store plugins for github.com/gin-contrib/sessions (well, mostly from
 github.com/gorilla/sessions). This module does something a bit different: you must bring your own struct that uses
 `dynamodbav` struct tags to model the DynamoDB table that contains session data. When handling a request, you can either

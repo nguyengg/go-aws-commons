@@ -1,4 +1,4 @@
-package session
+package rules
 
 // Groups is a string list, preferably a string set.
 type Groups []string
@@ -14,7 +14,7 @@ type Groups []string
 //
 //	// user must be able to read both payments and inventory, but write permissions implies read as well.
 //	Groups([]string{...}).Test(OneOf("can_read_payment", "can_write_payment"), OneOf("can_read_inventory", "can_write_inventory"))
-func (groups Groups) Test(rule func(*rules), more ...Rule) bool {
+func (groups Groups) Test(rule Rule, more ...Rule) bool {
 	opts := &rules{
 		allOf: make(map[string]bool),
 		oneOf: nil,
@@ -56,6 +56,7 @@ type rules struct {
 	oneOf *node
 }
 
+// Rule can only be either AllOf or OneOf.
 type Rule func(*rules)
 
 // AllOf adds a rule that the user must belong to all the groups specified here.

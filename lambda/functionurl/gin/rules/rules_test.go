@@ -1,8 +1,10 @@
-package session
+package rules
 
-import "testing"
+import (
+	"testing"
+)
 
-func Test(t *testing.T) {
+func TestGroups(t *testing.T) {
 	type args struct {
 		rule func(*rules)
 		more []Rule
