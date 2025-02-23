@@ -29,6 +29,8 @@ const (
 //
 // See ddb.Table for more information on how the struct tags are parsed. If type T does not implement the required tags
 // or the tags fail validation, the function will panic.
+//
+// Use WithCSRF if you want Save to also create a new CSRF token if the session is new.
 func Sessions[T interface{}](name string, optFns ...func(*Session)) gin.HandlerFunc {
 	table, err := ddb.NewTable(reflect.TypeFor[T](), func(options *ddb.TableOptions) {
 		options.Validator = validator

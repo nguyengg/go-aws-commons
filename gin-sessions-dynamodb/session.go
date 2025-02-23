@@ -1,6 +1,7 @@
 package sessions
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/nguyengg/go-aws-commons/ddb"
+	"github.com/nguyengg/go-aws-commons/opaque-token/hmac"
 )
 
 // Session implements gin sessions.Session in a type-safe way.
@@ -27,7 +29,7 @@ type Session struct {
 	// By default, DefaultNewSessionId is used.
 	NewSessionId func() string
 
-	// CookieOptions modify the cookie settings.
+	// CookieOptions modifies the session cookie settings.
 	CookieOptions sessions.Options
 
 	c       *gin.Context
@@ -36,6 +38,11 @@ type Session struct {
 	manager *ddb.Manager
 	t       reflect.Type
 	v       interface{}
+
+	// csrf stuff.
+	hasher         hmac.Hasher
+	csrfCookieName string
+	csrfValue      string
 }
 
 // Options stores configuration for a session or session store.
@@ -68,6 +75,15 @@ func (s *Session) get() (interface{}, error) {
 		return nil, fmt.Errorf("get session from dynamodb error: %w", err)
 	}
 
+	if s.hasher != nil {
+		token, err := s.hasher.Sign(s.c, []byte(sid), 16)
+		if err != nil {
+			return nil, fmt.Errorf("create CSRF token error: %w", err)
+		}
+
+		s.csrfValue = base64.RawURLEncoding.EncodeToString(token)
+	}
+
 	return s.v, nil
 }
 
@@ -75,10 +91,21 @@ func (s *Session) new() (interface{}, error) {
 	v := reflect.New(s.t)
 	s.v = v.Interface()
 
+	var sid string
 	if v, err := s.table.HashKey.GetFieldValue(v.Elem()); err != nil {
 		return nil, fmt.Errorf("get field value error: %w", err)
 	} else {
-		v.SetString(s.NewSessionId())
+		sid = s.NewSessionId()
+		v.SetString(sid)
+	}
+
+	if s.hasher != nil {
+		token, err := s.hasher.Sign(s.c, []byte(sid), 16)
+		if err != nil {
+			return nil, fmt.Errorf("create CSRF token error: %w", err)
+		}
+
+		s.csrfValue = base64.RawURLEncoding.EncodeToString(token)
 	}
 
 	return s.v, nil
@@ -193,5 +220,9 @@ func (s *Session) Save() error {
 
 	s.c.SetSameSite(s.CookieOptions.SameSite)
 	s.c.SetCookie(s.name, v.String(), s.CookieOptions.MaxAge, s.CookieOptions.Path, s.CookieOptions.Domain, s.CookieOptions.Secure, s.CookieOptions.HttpOnly)
+	if s.csrfValue != "" {
+		s.c.SetCookie(s.csrfValue, s.csrfValue, s.CookieOptions.MaxAge, s.CookieOptions.Path, s.CookieOptions.Domain, s.CookieOptions.Secure, false)
+	}
+
 	return nil
 }
