@@ -38,6 +38,13 @@ type Session struct {
 	v       interface{}
 }
 
+// Options stores configuration for a session or session store.
+// Fields are a subset of http.Cookie fields.
+//
+// This is a clone from "github.com/gin-contrib/sessions" and "github.com/gorilla/sessions" which are both named
+// "sessions" to help you not having to name your import conflicts.
+type Options = sessions.Options
+
 func (s *Session) get() (interface{}, error) {
 	if s.v != nil {
 		return s.v, nil
@@ -164,7 +171,7 @@ func (s *Session) Flashes(vars ...string) []interface{} {
 	panic("implement me")
 }
 
-func (s *Session) Options(options sessions.Options) {
+func (s *Session) Options(options Options) {
 	s.CookieOptions = options
 }
 

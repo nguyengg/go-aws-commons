@@ -9,7 +9,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/gorilla/context"
@@ -133,10 +132,10 @@ func Save(c *gin.Context) error {
 	return c.MustGet(DefaultKey).(*Session).Save()
 }
 
-// Options can be used to modify the cookie options for the current session.
+// SetOptions can be used to modify the cookie options for the current session.
 //
-// If you are not using Default and only use the type-safe Get and New, Options can be used instead of Session.Options.
-func Options(c *gin.Context, options sessions.Options) {
+// If you are not using Default and only use the type-safe Get and New, SetOptions can be used instead of Session.Options.
+func SetOptions(c *gin.Context, options Options) {
 	c.MustGet(DefaultKey).(*Session).Options(options)
 }
 
