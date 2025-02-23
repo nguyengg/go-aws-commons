@@ -7,8 +7,8 @@ import (
 	"github.com/aws/aws-lambda-go/lambdacontext"
 	"github.com/aws/aws-lambda-go/lambdaurl"
 	"github.com/gin-gonic/gin"
+	commonslambda "github.com/nguyengg/go-aws-commons/lambda"
 	"github.com/nguyengg/go-aws-commons/metrics"
-	"github.com/rs/zerolog"
 )
 
 // StartStream starts the Lambda loop in STREAM_RESPONSE mode with the given Gin engine.
@@ -36,12 +36,13 @@ type handler struct {
 }
 
 func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
 	m := metrics.New()
-
+	ctx := metrics.WithContext(r.Context(), m)
 	if lc, ok := lambdacontext.FromContext(ctx); ok {
 		m.SetProperty("awsRequestID", lc.AwsRequestID)
 	}
+
+	ctx, l := commonslambda.LoggerWithContext(ctx)
 
 	panicked := true
 	defer func() {
@@ -49,10 +50,10 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			m.Panicked()
 		}
 
-		m.Log(zerolog.Ctx(ctx))
+		m.Log(l)
 	}()
 
-	*r = *r.WithContext(metrics.WithContext(ctx, m))
+	*r = *r.WithContext(ctx)
 
 	h.r.ServeHTTP(&writer{w, m}, r)
 

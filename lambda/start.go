@@ -2,6 +2,7 @@ package lambda
 
 import (
 	"context"
+	"os"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -22,11 +23,12 @@ import (
 func StartHandlerFunc[TIn any, TOut any](handler func(context.Context, TIn) (TOut, error), options ...lambda.Option) {
 	lambda.StartHandlerFunc(func(ctx context.Context, in TIn) (TOut, error) {
 		m := metrics.New()
-
+		ctx = metrics.WithContext(ctx, m)
 		if lc, ok := lambdacontext.FromContext(ctx); ok {
 			m.SetProperty("awsRequestID", lc.AwsRequestID)
 		}
 
+		ctx, l := LoggerWithContext(ctx)
 		defer SetUpGlobalLogger(ctx)()
 
 		panicked := true
@@ -35,10 +37,10 @@ func StartHandlerFunc[TIn any, TOut any](handler func(context.Context, TIn) (TOu
 				m.Panicked()
 			}
 
-			m.Log(zerolog.Ctx(ctx))
+			m.Log(l)
 		}()
 
-		v, err := handler(metrics.WithContext(ctx, m), in)
+		v, err := handler(ctx, in)
 		if err != nil {
 			m.Faulted()
 		}
@@ -54,11 +56,12 @@ func StartHandlerFunc[TIn any, TOut any](handler func(context.Context, TIn) (TOu
 func Start[TIn any](handler func(context.Context, TIn) error, options ...lambda.Option) {
 	lambda.StartWithOptions(func(ctx context.Context, in TIn) error {
 		m := metrics.New()
-
+		ctx = metrics.WithContext(ctx, m)
 		if lc, ok := lambdacontext.FromContext(ctx); ok {
 			m.SetProperty("awsRequestID", lc.AwsRequestID)
 		}
 
+		ctx, l := LoggerWithContext(ctx)
 		defer SetUpGlobalLogger(ctx)()
 
 		panicked := true
@@ -67,10 +70,10 @@ func Start[TIn any](handler func(context.Context, TIn) error, options ...lambda.
 				m.Panicked()
 			}
 
-			m.Log(zerolog.Ctx(ctx))
+			m.Log(l)
 		}()
 
-		err := handler(metrics.WithContext(ctx, m), in)
+		err := handler(ctx, in)
 		if err != nil {
 			m.Faulted()
 		}
@@ -144,4 +147,31 @@ func StartSQSEventHandlerFunc(handler func(context.Context, events.SQSEvent) (ev
 		m.AddCount("batchItemFailureCount", int64(len(res.BatchItemFailures)))
 		return res, err
 	})
+}
+
+// LoggerWithContext returns a valid zerolog.Logger for use.
+//
+// Because zerolog.Ctx may return a disabled (no-op) logger, it's difficult to determine if user is intentionally
+// disabling logging via context, or if the zerolog.DefaultContextLogger has not been set up. As a result, this method
+// may create a new logger if it can determine that one should be created, and the logger will be attached to the
+// new returned context in that case. If zerolog.DefaultContextLogger is not nil then the returned value from
+// zerolog.Ctx is always used.
+//
+// Furthermore, if a Lambda context is available from lambdacontext.FromContext, the zerolog.Context of the returned
+// logger is updated with a string awsRequestID.
+func LoggerWithContext(ctx context.Context) (_ context.Context, l *zerolog.Logger) {
+	if l = zerolog.Ctx(ctx); l.GetLevel() == zerolog.Disabled && zerolog.DefaultContextLogger == nil {
+		newLogger := zerolog.New(os.Stderr)
+		l = &newLogger
+		ctx = l.WithContext(ctx)
+	}
+
+	if lc, ok := lambdacontext.FromContext(ctx); ok {
+		l.UpdateContext(func(c zerolog.Context) zerolog.Context {
+			c.Str("awsRequestID", lc.AwsRequestID)
+			return c
+		})
+	}
+
+	return ctx, l
 }
