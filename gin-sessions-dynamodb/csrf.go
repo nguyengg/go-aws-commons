@@ -55,9 +55,9 @@ type CSRFSource func(*gin.Context) ([]byte, error)
 func RequireCSRF(hasher hmac.Hasher, optFns ...func(*CSRFOptions)) gin.HandlerFunc {
 	m := &CSRFOptions{
 		Sources: []CSRFSource{
-			CSRFFromCookie(DefaultCSRFCookieName, base64.RawURLEncoding.DecodeString),
-			CSRFFromHeader(DefaultCSRFHeaderName, base64.RawURLEncoding.DecodeString),
-			CSRFFromForm(DefaultCSRFFormName, base64.RawURLEncoding.DecodeString),
+			CSRFFromCookie(DefaultCSRFCookieName),
+			CSRFFromHeader(DefaultCSRFHeaderName),
+			CSRFFromForm(DefaultCSRFFormName),
 		},
 		MethodFilter: defaultMethodFilter,
 		hasher:       hasher,
@@ -89,8 +89,8 @@ func GetCSRF(c *gin.Context) string {
 	return Default(c).csrfValue
 }
 
-// CSRFFromCookie retrieves the CSRF token from cookie with the given name.
-func CSRFFromCookie(name string, decode func(string) ([]byte, error)) CSRFSource {
+// CSRFFromCookie retrieves the CSRF base64-raw-url-encoded token from cookie with the given name.
+func CSRFFromCookie(name string) CSRFSource {
 	return func(c *gin.Context) ([]byte, error) {
 		v, err := c.Cookie(name)
 		if err != nil {
@@ -101,55 +101,57 @@ func CSRFFromCookie(name string, decode func(string) ([]byte, error)) CSRFSource
 			return nil, err
 		}
 
-		return decode(v)
+		return base64.RawURLEncoding.DecodeString(v)
 	}
 }
 
-// CSRFFromHeader retrieves the CSRF token from request header with the given name.
-func CSRFFromHeader(name string, decode func(string) ([]byte, error)) CSRFSource {
+// CSRFFromHeader retrieves the CSRF base64-raw-url-encoded token from request header with the given name.
+func CSRFFromHeader(name string) CSRFSource {
 	return func(c *gin.Context) ([]byte, error) {
 		v := c.GetHeader(name)
 		if v == "" {
 			return nil, ErrNoCSRFHeader
 		}
 
-		return decode(v)
+		return base64.RawURLEncoding.DecodeString(v)
 	}
 }
 
-// CSRFFromForm retrieves the CSRF token from the POST form parameter with the given name.
-func CSRFFromForm(name string, decode func(string) ([]byte, error)) CSRFSource {
+// CSRFFromForm retrieves the CSRF base64-raw-url-encoded token from the POST form parameter with the given name.
+func CSRFFromForm(name string) CSRFSource {
 	return func(c *gin.Context) ([]byte, error) {
 		v, ok := c.GetPostForm(name)
 		if v == "" || !ok {
 			return nil, ErrNoCSRFForm
 		}
 
-		return decode(v)
+		return base64.RawURLEncoding.DecodeString(v)
 	}
 }
 
 // DoubleSubmit validates that all of the given CSRF sources must be available AND identical.
 //
-// Useful if you use double-submit cookie pattern.
-func DoubleSubmit(source CSRFSource, more ...CSRFSource) CSRFSource {
-	return func(c *gin.Context) (token []byte, err error) {
-		token, err = source(c)
-		if err != nil {
-			return nil, err
-		}
-
-		for _, fn := range more {
-			t, err := fn(c)
+// Useful if you use double-submit cookie pattern. This method replaces the existing [CSRFOptions.Sources].
+func DoubleSubmit(source CSRFSource, more ...CSRFSource) func(*CSRFOptions) {
+	return func(options *CSRFOptions) {
+		options.Sources = []CSRFSource{func(c *gin.Context) (token []byte, err error) {
+			token, err = source(c)
 			if err != nil {
 				return nil, err
 			}
-			if subtle.ConstantTimeCompare(token, t) != 1 {
-				return nil, ErrMismatchDoubleSubmit
-			}
-		}
 
-		return token, nil
+			for _, fn := range more {
+				t, err := fn(c)
+				if err != nil {
+					return nil, err
+				}
+				if subtle.ConstantTimeCompare(token, t) != 1 {
+					return nil, ErrMismatchDoubleSubmit
+				}
+			}
+
+			return token, nil
+		}}
 	}
 }
 
