@@ -40,10 +40,16 @@ func Sessions[T interface{}](name string, optFns ...func(*Session)) gin.HandlerF
 	return func(c *gin.Context) {
 		s := &Session{
 			NewSessionId: DefaultNewSessionId,
-			c:            c,
-			name:         name,
-			table:        table,
-			t:            reflect.TypeFor[T](),
+			CookieOptions: Options{
+				MaxAge:   0,
+				Secure:   true,
+				HttpOnly: true,
+				SameSite: http.SameSiteDefaultMode,
+			},
+			c:     c,
+			name:  name,
+			table: table,
+			t:     reflect.TypeFor[T](),
 		}
 		for _, fn := range optFns {
 			fn(s)
