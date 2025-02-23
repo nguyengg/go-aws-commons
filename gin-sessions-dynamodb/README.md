@@ -27,14 +27,12 @@ go get github.com/nguyengg/go-aws-commons/gin-sessions-dynamodb
 package main
 
 import (
-	"context"
 	"net/http"
 
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/gin-gonic/gin"
 	sessions "github.com/nguyengg/go-aws-commons/gin-sessions-dynamodb"
 	"github.com/nguyengg/go-aws-commons/gin-sessions-dynamodb/groups"
+	"github.com/nguyengg/go-aws-commons/opaque-token/hmac"
 )
 
 type Session struct {
@@ -48,22 +46,23 @@ type User struct {
 }
 
 func main() {
-	cfg, err := config.LoadDefaultConfig(context.Background())
-	if err != nil {
-		panic(err)
-	}
-
 	r := gin.Default()
-	r.Use(sessions.Sessions[Session]("sid", func(s *sessions.Session) {
+
+	// this example also enables CSRF generation and validation using secret provided by the AWS Secrets Lambda extension.
+	hasher := hmac.New(hmac.WithKeyFromLambdaExtensionSecrets("csrf-secret"))
+	r.Use(
 		// if you don't explicitly provide a client, `config.LoadDefaultConfig` is used similar to this example.
-		s.Client = dynamodb.NewFromConfig(cfg)
-	}))
+		sessions.Sessions[Session]("sid", sessions.WithCSRF(hasher, sessions.DefaultCSRFCookieName)),
+		// the Sessions middleware must act before the CSRF middleware.
+		sessions.RequireCSRF(hasher))
 
 	r.GET("/", func(c *gin.Context) {
 		// this is type-safe way to interaction with my session struct.
 		var mySession *Session = sessions.Get[Session](c)
 		mySession.User = &User{Sub: "henry", Groups: []string{"poweruser"}}
-		if err = sessions.Save(c); err != nil {
+
+		// because I enabled CSRF with WithCSRF, saving the session will write the CSRF cookie as well.
+		if err := sessions.Save(c); err != nil {
 			_ = c.AbortWithError(http.StatusBadGateway, err)
 			return
 		}
@@ -71,7 +70,7 @@ func main() {
 		// alternatively, I can use the sessions.Session interface "compatible" with gin and gorilla.
 		s := sessions.Default(c)
 		s.Set("user", "henry")
-		if err = s.Save(); err != nil {
+		if err := s.Save(); err != nil {
 			_ = c.AbortWithError(http.StatusBadGateway, err)
 			return
 		}
@@ -79,14 +78,15 @@ func main() {
 
 	// the module also provides a basic middleware to verify user from the session is authorised based on group
 	// membership.
-	r.GET("/protected/resource", groups.MustHave(func(c *gin.Context) (bool, groups.Groups) {
-		user := sessions.Get[Session](c).User
-		if user == nil {
-			return false, nil
-		}
+	r.GET("/protected/resource",
+		groups.MustHave(func(c *gin.Context) (bool, groups.Groups) {
+			user := sessions.Get[Session](c).User
+			if user == nil {
+				return false, nil
+			}
 
-		return true, user.Groups
-	}, groups.OneOf("canReadResource", "canWriteResource")))
+			return true, user.Groups
+		}, groups.OneOf("canReadResource", "canWriteResource")))
 }
 
 ```
