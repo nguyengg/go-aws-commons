@@ -51,6 +51,20 @@ func TestRequireGroupMembership_OK(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
+func TestRequireGroupMembership_NoRule(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, r := gin.CreateTestContext(w)
+
+	r.GET("/", MustHave(func(c *gin.Context) (authenticated bool, groups Groups) {
+		return true, []string{"a"}
+	}, WithForbiddenHandler(nil)))
+	c.Request, _ = http.NewRequest(http.MethodGet, "/", nil)
+	r.ServeHTTP(w, c.Request)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
 func TestGroups(t *testing.T) {
 	type args struct {
 		rule func(*rules)
