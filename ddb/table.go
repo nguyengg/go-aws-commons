@@ -245,7 +245,7 @@ func (t *Table) Get(in interface{}, name string) (_ interface{}, err error) {
 		return nil, ErrNoAttribute
 	}
 
-	v, err := a.GetFieldValue(reflect.ValueOf(in))
+	v, err := a.GetFieldValue(reflect.Indirect(reflect.ValueOf(in)))
 	if err != nil {
 		return nil, err
 	}

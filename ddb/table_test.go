@@ -19,22 +19,22 @@ func TestNewTable(t *testing.T) {
 	}
 
 	a, err := NewTableFromStruct(Test{})
-	if err != nil {
-		t.Errorf("NewTableFromStruct() error: %v", err)
-	}
+	assert.NoErrorf(t, err, "NewTableFromStruct() error: %v", err)
 
 	b, err := NewTable(reflect.TypeFor[Test]())
-	if err != nil {
-		t.Errorf("NewTableFromType() error: %v", err)
-	}
+	assert.NoErrorf(t, err, "NewTable() error: %v", err)
 
 	assert.Equal(t, a, b)
 
 	// can also parse from pointer value.
 	c, err := NewTableFromStruct(&Test{})
-	if err != nil {
-		t.Errorf("NewTableFromStruct() error: %v", err)
-	}
+	assert.NoErrorf(t, err, "NewTableFromStruct() error: %v", err)
+	_, err = NewTable(reflect.TypeFor[*Test]())
+	assert.NoErrorf(t, err, "NewTable() error: %v", err)
 
 	assert.Equal(t, a, c)
+
+	// Get can be called on both struct and pointer.
+	assert.Equal(t, "hello", a.MustGet(&Test{Id: "hello"}, "id"))
+	assert.Equal(t, "hello", a.MustGet(Test{Id: "hello"}, "id"))
 }
