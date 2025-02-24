@@ -15,6 +15,7 @@ import (
 
 type TestSession struct {
 	SessionId string `dynamodbav:"sessionId,hashkey" tableName:"session"`
+	User      string `dynamodbav:"user"`
 }
 
 type MockManagerAPIClient struct {
@@ -59,6 +60,22 @@ func TestSessions_New(t *testing.T) {
 		v := New[TestSession](c)
 		assert.Equal(t, v, Get[TestSession](c))
 		assert.Equal(t, v, &TestSession{SessionId: sid})
+
+		// test the Session interface as well.
+		s := Default(c)
+		assert.Equal(t, sid, s.ID())
+
+		v.User = "tom"
+		assert.Equal(t, "tom", s.Get("user"))
+
+		s.Delete("user")
+		assert.Empty(t, s.Get("user"))
+
+		s.Set("user", "jerry")
+		assert.Equal(t, "jerry", s.Get("user"))
+
+		s.Clear()
+		assert.Empty(t, s.Get("user"))
 	})
 	c.Request, _ = http.NewRequest(http.MethodGet, "/", nil)
 	r.ServeHTTP(w, c.Request)

@@ -115,7 +115,7 @@ var _ sessions.Session = &Session{}
 var _ sessions.Session = (*Session)(nil)
 
 func (s *Session) ID() string {
-	v, err := s.table.HashKey.GetFieldValue(reflect.ValueOf(s.v))
+	v, err := s.table.HashKey.GetFieldValue(reflect.Indirect(reflect.ValueOf(s.v)))
 	if err != nil {
 		panic(fmt.Errorf("get field value error: %w", err))
 	}
@@ -140,7 +140,7 @@ func (s *Session) Set(key interface{}, val interface{}) {
 			panic(fmt.Errorf(`session type %s has no attribute with name "%s"`, s.t, key))
 		}
 
-		v, err := a.GetFieldValue(reflect.ValueOf(s.v))
+		v, err := a.GetFieldValue(reflect.Indirect(reflect.ValueOf(s.v)))
 		if err != nil {
 			panic(fmt.Errorf("get field value error: %w", err))
 		}
@@ -159,7 +159,7 @@ func (s *Session) Delete(key interface{}) {
 			panic(fmt.Errorf(`session type %s has no attribute with name "%s"`, s.t, key))
 		}
 
-		v, err := a.GetFieldValue(reflect.ValueOf(s.v))
+		v, err := a.GetFieldValue(reflect.Indirect(reflect.ValueOf(s.v)))
 		if err != nil {
 			panic(fmt.Errorf("get field value error: %w", err))
 		}
@@ -179,7 +179,7 @@ func (s *Session) Clear() {
 			continue
 		}
 
-		v, err := a.GetFieldValue(reflect.ValueOf(s.v))
+		v, err := a.GetFieldValue(reflect.Indirect(reflect.ValueOf(s.v)))
 		if err != nil {
 			panic(fmt.Errorf("get field value error: %w", err))
 		}

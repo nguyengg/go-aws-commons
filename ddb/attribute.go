@@ -39,7 +39,9 @@ type Attribute struct {
 //	nameAv.GetFieldValue(reflect.ValueOf(v)).SetString("Jane") // would change v.Name to "Jane"
 //
 // You can use the returned [reflect.Value] to further set arbitrary values in the struct, though this will panic if
-// the types aren't compatible.
+// the types aren't compatible. The argument v MUST NOT be pointer type; you will get
+// "reflect: call of reflect.Value.Field on ptr Value" error if you pass in a pointer. Use [reflect.Indirect] to
+// dereference it first.
 func (s *Attribute) GetFieldValue(v reflect.Value) (reflect.Value, error) {
 	return v.FieldByIndexErr(s.Index)
 }
