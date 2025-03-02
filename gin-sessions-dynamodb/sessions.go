@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -42,7 +43,7 @@ func Sessions[T interface{}](name string, optFns ...func(*Session)) gin.HandlerF
 	return func(c *gin.Context) {
 		s := &Session{
 			NewSessionId: DefaultNewSessionId,
-			CookieOptions: Options{
+			CookieOptions: CookieOptions{
 				MaxAge:   0,
 				Secure:   true,
 				HttpOnly: true,
@@ -140,10 +141,11 @@ func Save(c *gin.Context) error {
 	return c.MustGet(DefaultKey).(*Session).Save()
 }
 
-// SetOptions can be used to modify the cookie options for the current session.
+// SetCookieOptions can be used to modify the cookie options for the current session.
 //
-// If you are not using Default and only use the type-safe Get and New, SetOptions can be used instead of Session.Options.
-func SetOptions(c *gin.Context, options Options) {
+// If you are not using Default and only use the type-safe Get and New, SetCookieOptions can be used instead of
+// Session.Options.
+func SetCookieOptions(c *gin.Context, options CookieOptions) {
 	c.MustGet(DefaultKey).(*Session).Options(options)
 }
 
@@ -166,4 +168,23 @@ func validator(a *ddb.Attribute) error {
 	}
 
 	return nil
+}
+
+// CookieOptions customises the session and/or CSRF cookie.
+//
+// Fields are a subset of http.Cookie fields.
+//
+// This is a clone from "github.com/gin-contrib/sessions" and "github.com/gorilla/sessions" which are both named
+// "sessions" to help avoid import naming conflicts. Additionally, Expires is supported.
+type CookieOptions struct {
+	Path    string
+	Domain  string
+	Expires time.Time
+	// MaxAge=0 means no 'Max-Age' attribute specified.
+	// MaxAge<0 means delete cookie now, equivalently 'Max-Age: 0'.
+	// MaxAge>0 means Max-Age attribute present and given in seconds.
+	MaxAge   int
+	Secure   bool
+	HttpOnly bool
+	SameSite http.SameSite
 }

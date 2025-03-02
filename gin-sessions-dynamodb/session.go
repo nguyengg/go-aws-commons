@@ -8,13 +8,12 @@ import (
 	"reflect"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/nguyengg/go-aws-commons/ddb"
 	"github.com/nguyengg/go-aws-commons/opaque-token/hmac"
 )
 
-// Session implements gin sessions.Session in a type-safe way.
+// Session implements gin Session in a type-safe way.
 type Session struct {
 	// Client is the DynamoDB client for saving session data.
 	//
@@ -30,7 +29,7 @@ type Session struct {
 	NewSessionId func() string
 
 	// CookieOptions modifies the session cookie settings.
-	CookieOptions sessions.Options
+	CookieOptions CookieOptions
 
 	c       *gin.Context
 	name    string
@@ -44,13 +43,6 @@ type Session struct {
 	csrfCookieName string
 	csrfValue      string
 }
-
-// Options stores configuration for a session or session store.
-// Fields are a subset of http.Cookie fields.
-//
-// This is a clone from "github.com/gin-contrib/sessions" and "github.com/gorilla/sessions" which are both named
-// "sessions" to help you not having to name your import conflicts.
-type Options = sessions.Options
 
 func (s *Session) get() (interface{}, error) {
 	if s.v != nil {
@@ -111,9 +103,7 @@ func (s *Session) new() (interface{}, error) {
 	return s.v, nil
 }
 
-var _ sessions.Session = &Session{}
-var _ sessions.Session = (*Session)(nil)
-
+// ID returns the session Id string.
 func (s *Session) ID() string {
 	v, err := s.table.HashKey.GetFieldValue(reflect.Indirect(reflect.ValueOf(s.v)))
 	if err != nil {
@@ -123,6 +113,14 @@ func (s *Session) ID() string {
 	return v.String()
 }
 
+// Get returns the attribute given the string key.
+//
+// Panics if key is not type string or key does is not tagged as a `dynamodbav` struct tag like:
+//
+//	type MySession struct {
+//		Id    string `dynamodbav:"sessionId,hashkey" tableName:"session"`
+//		Field string `dynamodbav:"key"`
+//	}
 func (s *Session) Get(key interface{}) interface{} {
 	switch key.(type) {
 	case string:
@@ -132,6 +130,15 @@ func (s *Session) Get(key interface{}) interface{} {
 	}
 }
 
+// Set modifies the attribute with the given string key.
+//
+// Panics if key is not type string, or key does is not tagged as a `dynamodbav` struct tag (like below), or the type of
+// val argument is not assignable to the field in struct:
+//
+//	type MySession struct {
+//		Id    string `dynamodbav:"sessionId,hashkey" tableName:"session"`
+//		Field string `dynamodbav:"key"`
+//	}
 func (s *Session) Set(key interface{}, val interface{}) {
 	switch key.(type) {
 	case string:
@@ -151,6 +158,15 @@ func (s *Session) Set(key interface{}, val interface{}) {
 	}
 }
 
+// Delete deletes (sets to zero value) the attribute with the given string key.
+//
+// Panics if key is not type string, or key does is not tagged as a `dynamodbav` struct tag (like below), or the type of
+// val argument does not have a zero value (is this even possible?):
+//
+//	type MySession struct {
+//		Id    string `dynamodbav:"sessionId,hashkey" tableName:"session"`
+//		Field string `dynamodbav:"key"`
+//	}
 func (s *Session) Delete(key interface{}) {
 	switch key.(type) {
 	case string:
@@ -188,20 +204,24 @@ func (s *Session) Clear() {
 	}
 }
 
+// AddFlash is not supported at the moment.
 func (s *Session) AddFlash(value interface{}, vars ...string) {
 	//TODO implement me
 	panic("implement me")
 }
 
+// Flashes is not supported at the moment.
 func (s *Session) Flashes(vars ...string) []interface{} {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (s *Session) Options(options Options) {
+// Options changes the cookie options.
+func (s *Session) Options(options CookieOptions) {
 	s.CookieOptions = options
 }
 
+// Save writes the session data to DynamoDB as well as updating the session (and CSRF if enabled) cookies.
 func (s *Session) Save() error {
 	// if the session value is nil then that means there has not been any changes to the session, so skip the save.
 	if s.v == nil {
@@ -219,9 +239,30 @@ func (s *Session) Save() error {
 	}
 
 	s.c.SetSameSite(s.CookieOptions.SameSite)
-	s.c.SetCookie(s.name, v.String(), s.CookieOptions.MaxAge, s.CookieOptions.Path, s.CookieOptions.Domain, s.CookieOptions.Secure, s.CookieOptions.HttpOnly)
+
+	// use our own setCookie which also uses Expires.
+	c := &http.Cookie{
+		Name:     s.name,
+		Value:    v.String(),
+		Expires:  s.CookieOptions.Expires,
+		MaxAge:   s.CookieOptions.MaxAge,
+		Path:     s.CookieOptions.Path,
+		Domain:   s.CookieOptions.Domain,
+		SameSite: s.CookieOptions.SameSite,
+		Secure:   s.CookieOptions.Secure,
+		HttpOnly: s.CookieOptions.HttpOnly,
+	}
+	if c.Path == "" {
+		c.Path = "/"
+	}
+
+	http.SetCookie(s.c.Writer, c)
+
 	if s.csrfValue != "" {
-		s.c.SetCookie(s.csrfValue, s.csrfValue, s.CookieOptions.MaxAge, s.CookieOptions.Path, s.CookieOptions.Domain, s.CookieOptions.Secure, false)
+		c.Name = s.csrfCookieName
+		c.Value = s.csrfValue
+		c.HttpOnly = false
+		http.SetCookie(s.c.Writer, c)
 	}
 
 	return nil

@@ -71,7 +71,7 @@ func RequireCSRF(hasher hmac.Hasher, optFns ...func(*CSRFOptions)) gin.HandlerFu
 
 // WithCSRF attaches to the session middleware the ability to set CSRF cookie as well when a new session is created.
 //
-// The cookie will use the same settings as Session.CookieOptions but with [Options.HttpOnly] set to false. The CSRF
+// The cookie will use the same settings as Session.CookieOptions but with [CookieOptions.HttpOnly] set to false. The CSRF
 // token will be saved to the context and can be retrieved using GetCSRF if it needs to be embedded in the response
 // as hidden form input.
 func WithCSRF(hasher hmac.Hasher, name string) func(*Session) {
