@@ -458,17 +458,23 @@ func (r *reader) read(dst io.Writer, rangeStart, rangeEnd int64) (int64, error) 
 				input = copyInput(r.input, startRange)
 			} else {
 				input = copyInput(r.input, startRange, startRange+partSize-1)
+				if err := r.limiter.WaitN(ctx, int(partSize)); err != nil {
+					cancel(fmt.Errorf("getObject (part=%d/%d, %s) rate limit error: %w", partNumber, lastPart, aws.ToString(input.Range), err))
+					return
+				}
 			}
 
 			output, err := r.client.GetObject(ctx, input)
 			if err != nil {
 				cancel(fmt.Errorf("getObject (part=%d/%d, %s) error: %w", partNumber, lastPart, aws.ToString(input.Range), err))
+				return
 			}
 
 			err = w.write(partNumber, output.Body)
 			_ = output.Body.Close()
 			if err != nil {
 				cancel(fmt.Errorf("copy getObject (part=%d/%d, %s) response error: %w", partNumber, lastPart, aws.ToString(input.Range), err))
+				return
 			}
 		}); err != nil {
 			err = fmt.Errorf("submit task error: %w", err)

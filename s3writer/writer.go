@@ -298,7 +298,9 @@ func (w *writer) write(src io.Reader, flush bool) (written int64, err error) {
 		if err = w.ex.Execute(func() {
 			defer wg.Done()
 
-			if err = w.uploadPart(ctx, partNumber, data); err != nil {
+			if err = w.limiter.WaitN(ctx, len(data)); err != nil {
+				cancel(fmt.Errorf("upload part %d rate limit error: %w", w.partNumber, err))
+			} else if err = w.uploadPart(ctx, partNumber, data); err != nil {
 				cancel(fmt.Errorf("upload part %d error: %w", w.partNumber, err))
 			}
 		}); err != nil {
