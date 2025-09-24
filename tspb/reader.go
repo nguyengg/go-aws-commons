@@ -35,7 +35,7 @@ func FromReader(r io.Reader, description string) io.ReadCloser {
 		description = "reading"
 	}
 
-	if term.IsTerminal(int(os.Stdout.Fd())) {
+	if term.IsTerminal(int(os.Stderr.Fd())) {
 		pb := progressbar.NewReader(r, progressbar.NewOptions64(size, defaultByteOptions(description)...))
 		return &pb
 	}
@@ -61,7 +61,7 @@ func FromReaderWithOptions(r io.Reader, options ...progressbar.Option) io.ReadCl
 		description = "reading"
 	}
 
-	if term.IsTerminal(int(os.Stdout.Fd())) {
+	if term.IsTerminal(int(os.Stderr.Fd())) {
 		options = append([]progressbar.Option{progressbar.OptionSetDescription(description)}, options...)
 		pb := progressbar.NewReader(r, progressbar.NewOptions64(size, options...))
 		return &pb

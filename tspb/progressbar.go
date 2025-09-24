@@ -30,7 +30,7 @@ func defaultByteOptions(desc string) []progressbar.Option {
 
 // DefaultBytes is the terminal-safe equivalent of progressbar.DefaultBytes.
 func DefaultBytes(size int64, desc string, options ...progressbar.Option) io.WriteCloser {
-	if term.IsTerminal(int(os.Stdout.Fd())) {
+	if term.IsTerminal(int(os.Stderr.Fd())) {
 		return progressbar.NewOptions64(size, append(defaultByteOptions(desc), options...)...)
 	}
 
