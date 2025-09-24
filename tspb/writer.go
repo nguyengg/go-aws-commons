@@ -6,29 +6,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/schollz/progressbar/v3"
-	"golang.org/x/term"
 )
-
-// defaultByteOptions uses the same options as progressbar.DefaultBytes.
-func defaultByteOptions(desc string) []progressbar.Option {
-	return []progressbar.Option{
-		progressbar.OptionSetDescription(desc),
-		progressbar.OptionSetWriter(os.Stderr),
-		progressbar.OptionShowBytes(true),
-		progressbar.OptionShowTotalBytes(true),
-		progressbar.OptionThrottle(1 * time.Second),
-		progressbar.OptionShowCount(),
-		progressbar.OptionOnCompletion(func() {
-			_, _ = fmt.Fprint(os.Stderr, "\n")
-		}),
-		progressbar.OptionSpinnerType(14),
-		progressbar.OptionFullWidth(),
-		progressbar.OptionSetRenderBlankState(true),
-	}
-}
 
 // FromWriter creates a new terminal-safe progress bar for writing to the given io.Writer.
 //
@@ -54,15 +34,11 @@ func FromWriter(w io.Writer, description string) io.WriteCloser {
 		description = "writing"
 	}
 
-	if term.IsTerminal(int(os.Stdout.Fd())) {
-		return progressbar.NewOptions64(size, defaultByteOptions(description)...)
-	}
-
-	return newRateLimitedLogger(description, size)
+	return DefaultBytes(size, description)
 }
 
 // FromWriterWithOptions is a variant of FromWriter that gives caller more customisation options over the progress bar.
-func FromWriterWithOptions(w io.Writer, options ...progressbar.Option) io.ReadCloser {
+func FromWriterWithOptions(w io.Writer, options ...progressbar.Option) io.WriteCloser {
 	var (
 		description string
 		size        int64 = -1
@@ -79,10 +55,5 @@ func FromWriterWithOptions(w io.Writer, options ...progressbar.Option) io.ReadCl
 		description = "writing"
 	}
 
-	if term.IsTerminal(int(os.Stdout.Fd())) {
-		options = append([]progressbar.Option{progressbar.OptionSetDescription(description)}, options...)
-		return progressbar.NewOptions64(size, options...)
-	}
-
-	return newRateLimitedLogger(description, size)
+	return DefaultBytes(size, description, options...)
 }
