@@ -11,6 +11,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/nguyengg/go-aws-commons/executor"
 	"github.com/valyala/bytebufferpool"
 	"golang.org/x/time/rate"
 )
@@ -246,7 +247,7 @@ func NewReaderWithSize(ctx context.Context, client GetObjectClient, input *s3.Ge
 		logger:      opts.logger,
 
 		// internal.
-		ex:      newCallerRunsOnFullExecutor(opts.Concurrency - 1),
+		ex:      executor.NewCallerRunsOnFullExecutor(opts.Concurrency - 1),
 		limiter: limiter,
 		buf:     &bytes.Buffer{},
 		off:     0,
@@ -264,7 +265,7 @@ type reader struct {
 	logger                                progressLogger
 
 	// internal.
-	ex      executor
+	ex      executor.Executor
 	limiter *rate.Limiter
 	buf     *bytes.Buffer
 	off     int64
@@ -400,7 +401,7 @@ func (r *reader) Reopen() Reader {
 		logger:      r.logger.Reopen(),
 
 		// internal.
-		ex:      newCallerRunsOnFullExecutor(r.concurrency - 1),
+		ex:      executor.NewCallerRunsOnFullExecutor(r.concurrency - 1),
 		limiter: r.limiter,
 		buf:     &bytes.Buffer{},
 		off:     0,

@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/nguyengg/go-aws-commons/executor"
 	"github.com/nguyengg/go-aws-commons/s3writer/internal"
 	"golang.org/x/time/rate"
 )
@@ -176,7 +177,7 @@ func New(ctx context.Context, client WriterClient, input *s3.PutObjectInput, opt
 		logger:              opts.logger,
 
 		// internal.
-		ex:      newCallerRunsOnFullExecutor(opts.Concurrency - 1),
+		ex:      executor.NewCallerRunsOnFullExecutor(opts.Concurrency - 1),
 		limiter: limiter,
 		buf:     buf,
 	}, nil
@@ -194,7 +195,7 @@ type writer struct {
 	logger              io.Writer
 
 	// internal.
-	ex            executor
+	ex            executor.Executor
 	limiter       *rate.Limiter
 	buf           *bytes.Buffer
 	uploadId      *string
