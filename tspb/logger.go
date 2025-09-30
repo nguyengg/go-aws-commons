@@ -3,6 +3,7 @@ package tspb
 import (
 	"io"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/dustin/go-humanize"
@@ -20,6 +21,7 @@ type RateLimitedLogger struct {
 	// Defaults to log.Default.
 	Logger *log.Logger
 
+	once        sync.Once
 	description string
 	size, n     int64
 }
@@ -34,7 +36,17 @@ func newRateLimitedLogger(description string, size int64) *RateLimitedLogger {
 }
 
 func (l *RateLimitedLogger) add(d int64) {
+	l.once.Do(func() {
+		if l.Rate == nil {
+			l.Rate = &rate.Sometimes{Interval: 10 * time.Second}
+		}
+		if l.Logger == nil {
+			l.Logger = log.Default()
+		}
+	})
+
 	l.n += d
+
 	l.Rate.Do(func() {
 		if l.size <= 0 {
 			l.Logger.Printf("%s: %s", l.description, humanize.IBytes(uint64(l.n)))
