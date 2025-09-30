@@ -23,37 +23,77 @@ type Executor interface {
 	Wait()
 }
 
+type FullBufferPolicy int
+
+const (
+	CallerBlocksOnFullPolicy FullBufferPolicy = iota
+	CallerRunsOnFullPolicy
+)
+
 // ErrClosed is returned by Executor.Execute if Executor.Close has already been called.
 var ErrClosed = errors.New("executor already closed")
 
-// NewCallerRunsOnFullExecutor returns a new executor that will execute the command on same goroutine as caller if a
-// new pool of n goroutines is full.
+// Options allows customisations of the executor returned by New.
+type Options struct {
+	// capacity is the capacity of inputs channel.
+	capacity int
+}
+
+// WithCapacity changes the capacity of the executor's task buffer.
 //
-// Passing n == 0 effectively returns an always-caller-run executor. Panics if n < 0.
-func NewCallerRunsOnFullExecutor(n int) Executor {
-	if n == 0 {
-		return &callerRunsExecutor{}
+// With a capacity that is higher than the number of goroutines, Executor.Execute would take longer to start kicking in
+// its full-buffer policy (either CallerRunsOnFullPolicy or CallerBlocksOnFullPolicy). Useful if you have a list of
+// tasks that is larger than the number of CPUs.
+//
+// Panics if capacity < 0.
+func WithCapacity(capacity int) func(*Options) {
+	return func(opts *Options) {
+		opts.capacity = capacity
+	}
+}
+
+// New creates a new Executor with the given full-buffer policy and pool size.
+//
+// Passing poolSize == 0 effectively returns an executor that executes the function on the same goroutine as caller.
+// Panics if poolSize < 0.
+//
+// By default, the input buffer capacity is the same as the pool size. Use WithCapacity to change this.
+func New(policy FullBufferPolicy, poolSize int, optFns ...func(*Options)) (ex Executor) {
+	if poolSize == 0 {
+		return &callerAlwaysRunsExecutor{}
 	}
 
-	ex := &callerRunsOnFullExecutor{
-		inputs: make(chan func(), n),
+	opts := &Options{capacity: poolSize}
+	for _, fn := range optFns {
+		fn(opts)
+	}
+
+	base := &baseExecutor{
+		inputs: make(chan func(), opts.capacity),
 		done:   make(chan struct{}),
 	}
 
-	for range n {
-		ex.wg.Go(ex.poll)
+	switch policy {
+	case CallerRunsOnFullPolicy:
+		ex = &callerRunsOnFullExecutor{base}
+	default:
+		ex = &callerBlocksOnFullExecutor{base}
+	}
+
+	for range policy {
+		base.wg.Go(base.poll)
 	}
 
 	return ex
 }
 
-type callerRunsOnFullExecutor struct {
+type baseExecutor struct {
 	inputs chan func()
 	done   chan struct{}
 	wg     sync.WaitGroup
 }
 
-func (ex *callerRunsOnFullExecutor) poll() {
+func (ex *baseExecutor) poll() {
 	ex.wg.Go(func() {
 		defer func() {
 			_ = recover()
@@ -65,23 +105,11 @@ func (ex *callerRunsOnFullExecutor) poll() {
 	})
 }
 
-func (ex *callerRunsOnFullExecutor) Execute(f func()) (err error) {
-	select {
-	case <-ex.done:
-		return ErrClosed
-	case ex.inputs <- f:
-		return nil
-	default:
-		f()
-		return nil
-	}
-}
-
-func (ex *callerRunsOnFullExecutor) Wait() {
+func (ex *baseExecutor) Wait() {
 	ex.wg.Wait()
 }
 
-func (ex *callerRunsOnFullExecutor) Close() error {
+func (ex *baseExecutor) Close() error {
 	select {
 	case <-ex.done:
 		return ErrClosed
@@ -90,29 +118,4 @@ func (ex *callerRunsOnFullExecutor) Close() error {
 		close(ex.inputs)
 		return nil
 	}
-}
-
-type callerRunsExecutor struct {
-	closed bool
-}
-
-func (ex *callerRunsExecutor) Execute(f func()) error {
-	if ex.closed {
-		return ErrClosed
-	}
-
-	f()
-	return nil
-}
-
-func (ex *callerRunsExecutor) Wait() {
-}
-
-func (ex *callerRunsExecutor) Close() error {
-	if ex.closed {
-		return ErrClosed
-	}
-
-	ex.closed = true
-	return nil
 }
