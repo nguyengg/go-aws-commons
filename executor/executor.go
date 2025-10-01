@@ -23,11 +23,17 @@ type Executor interface {
 	Wait()
 }
 
+// FullBufferPolicy controls the behaviour of the Executor when its task buffer is full.
 type FullBufferPolicy int
 
 const (
+	// CallerBlocksOnFullPolicy will cause Executor.Execute to block if the task buffer is full.
+	//
+	// This is the default behaviour.
 	CallerBlocksOnFullPolicy FullBufferPolicy = iota
+	// CallerRunsOnFullPolicy will execute the task in the same goroutine that calls Executor.Execute.
 	CallerRunsOnFullPolicy
+	// TODO support DropOnFullPolicy to drop task overflow.
 )
 
 // ErrClosed is returned by Executor.Execute if Executor.Close has already been called.
