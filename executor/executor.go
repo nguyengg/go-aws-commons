@@ -86,7 +86,7 @@ func New(policy FullBufferPolicy, poolSize int, optFns ...func(*Options)) (ex Ex
 		ex = &callerBlocksOnFullExecutor{base}
 	}
 
-	for range policy {
+	for range poolSize {
 		base.wg.Go(base.poll)
 	}
 
