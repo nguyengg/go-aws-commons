@@ -49,9 +49,9 @@ func CopyBufferWithContext(ctx context.Context, dst io.Writer, src io.Reader, bu
 	}
 }
 
-// ReadWithContext wraps the given io.Reader so that if the context is cancelled, [io.Reader.Read] always returns the
+// NewContextReader wraps the given io.Reader so that if the context is cancelled, [io.Reader.Read] always returns the
 // error from the context.
-func ReadWithContext(ctx context.Context, r io.Reader) io.Reader {
+func NewContextReader(ctx context.Context, r io.Reader) io.Reader {
 	return &ctxReader{ctx, r}
 }
 
@@ -69,9 +69,9 @@ func (c *ctxReader) Read(p []byte) (int, error) {
 	}
 }
 
-// WriteWithContext wraps the given io.Writer so that if the context is cancelled, [io.Writer.Write] always returns the
+// NewContextWriter wraps the given io.Writer so that if the context is cancelled, [io.Writer.Write] always returns the
 // // error from the context.
-func WriteWithContext(ctx context.Context, w io.Writer) io.Writer {
+func NewContextWriter(ctx context.Context, w io.Writer) io.Writer {
 	return &ctxWriter{ctx, w}
 }
 
