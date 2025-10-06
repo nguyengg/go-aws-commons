@@ -17,7 +17,7 @@ import (
 //
 // The zero-value ProgressLogger is ready for use and will detect whether to use progressbar.ProgressBar or log.Default
 // on the first Write. In order to move this detection logic earlier, or to customise the ProgressLogger and/or the
-// underlying progressbar, use New instead.
+// underlying progressbar, use DefaultBytes instead.
 //
 // ProgressLogger implements io.Writer to provide progress logging similar to progressbar.ProgressBar. The intended
 // usage of this struct is to log progress such as writing "writing x MiB / y GiB (z %) [elapsedTime]" for progress
@@ -85,7 +85,7 @@ func (l *ProgressLogger) init() {
 		}
 
 		if l.Log == nil {
-			l.Log = l.defaultLog
+			l.Log = l.defaultLogBytes
 		}
 	})
 }
@@ -135,13 +135,14 @@ func (l *ProgressLogger) Finish() error {
 	return nil
 }
 
-func (l *ProgressLogger) defaultLog(size, written int64, elapsed time.Duration, done bool) {
+func (l *ProgressLogger) defaultLogBytes(size, written int64, elapsed time.Duration, done bool) {
 	if done {
 		if size > 0 && size != written {
 			l.Logger.Printf("wrote %s / %s (%.2f%%) [%s]", humanize.IBytes(uint64(written)), humanize.IBytes(uint64(size)), 100.0*float64(written)/float64(size), elapsed)
 		} else {
 			l.Logger.Printf("wrote %s [%s]", humanize.IBytes(uint64(written)), elapsed)
 		}
+
 		return
 	}
 
@@ -152,22 +153,23 @@ func (l *ProgressLogger) defaultLog(size, written int64, elapsed time.Duration, 
 	}
 }
 
-func createLogFunction(logger *log.Logger, prefix string) func(size, written int64, elapsed time.Duration, done bool) {
-	if prefix == "" {
+// CreateSimpleLogFunction creates a sensible no-nonsense logging function that is good enough most of the time.
+func CreateSimpleLogFunction(logger *log.Logger, prefix string, showBytes bool) func(size, written int64, elapsed time.Duration, done bool) {
+	if showBytes {
 		return func(size, written int64, elapsed time.Duration, done bool) {
-			if size > 0 {
-				logger.Printf("%s / %s (%.2f%%) [%s]", humanize.IBytes(uint64(written)), humanize.IBytes(uint64(size)), 100.0*float64(written)/float64(size), elapsed)
+			if size > 0 || (done && size != written) {
+				logger.Printf("%s%s / %s (%.2f%%) [%s]", prefix, humanize.IBytes(uint64(written)), humanize.IBytes(uint64(size)), 100.0*float64(written)/float64(size), elapsed)
 			} else {
-				logger.Printf("%s [%s]", humanize.IBytes(uint64(written)), elapsed)
+				logger.Printf("%s%s [%s]", prefix, humanize.IBytes(uint64(written)), elapsed)
 			}
 		}
 	}
 
 	return func(size, written int64, elapsed time.Duration, done bool) {
-		if size > 0 {
-			logger.Printf("%s %s / %s (%.2f%%) [%s]", prefix, humanize.IBytes(uint64(written)), humanize.IBytes(uint64(size)), 100.0*float64(written)/float64(size), elapsed)
+		if size > 0 || (done && size != written) {
+			logger.Printf("%s%d / %d (%.2f%%) [%s]", prefix, written, size, 100.0*float64(written)/float64(size), elapsed)
 		} else {
-			logger.Printf("%s %s [%s]", prefix, humanize.IBytes(uint64(written)), elapsed)
+			logger.Printf("%s%d [%s]", prefix, written, elapsed)
 		}
 	}
 }

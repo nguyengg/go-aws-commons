@@ -14,7 +14,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Kill, os.Interrupt)
 	defer stop()
 
-	bar := tspb.New(-1, "test")
+	bar := tspb.DefaultBytes(-1, "test")
 	defer bar.Close()
 
 	buf := make([]byte, 32)
