@@ -26,8 +26,7 @@ import (
 //
 // Close should always be called to apply the completion logic of the progressbar ([progressbar.ProgressBar.Exit]).
 // Finish should be called only if process has completed successfully; this will call [progressbar.ProgressBar.Finish]
-// to fill the progressbar and trigger finish logic. The fallback logger will only log once if both Finish and Close are
-// called.
+// to fill the progressbar and trigger completion logic.
 type ProgressLogger struct {
 	// Size is the expected size.
 	//
@@ -107,32 +106,43 @@ func (l *ProgressLogger) Write(p []byte) (n int, err error) {
 	return
 }
 
-func (l *ProgressLogger) Close() error {
+// Close should always be called as a deferred function.
+//
+// If not in terminal, print a final log message showing current progress. If progressbar is used,
+// [progressbar.ProgressBar.Exit] will be called to force completion hook to run without completing the progressbar
+// unlike Finish.
+func (l *ProgressLogger) Close() (err error) {
 	l.init()
 
-	if l.bar != nil {
-		return l.bar.Exit()
-	}
-
 	l.finished.Do(func() {
+		if l.bar != nil {
+			err = l.bar.Exit()
+			return
+		}
+
 		elapsed := time.Now().Sub(l.start).Truncate(time.Second)
 		l.Log(l.Size, l.written, elapsed, true)
 	})
-	return nil
+	return
 }
 
-func (l *ProgressLogger) Finish() error {
+// Finish should only be called if progress has completed successfully.
+//
+// If not in terminal, print a final log message showing current progress. If progressbar is used,
+// [progressbar.ProgressBar.Finish] will be called which also triggers completion hook.
+func (l *ProgressLogger) Finish() (err error) {
 	l.init()
 
-	if l.bar != nil {
-		return l.bar.Finish()
-	}
-
 	l.finished.Do(func() {
+		if l.bar != nil {
+			err = l.bar.Finish()
+			return
+		}
+
 		elapsed := time.Now().Sub(l.start).Truncate(time.Second)
 		l.Log(l.Size, l.written, elapsed, true)
 	})
-	return nil
+	return
 }
 
 func (l *ProgressLogger) defaultLogBytes(size, written int64, elapsed time.Duration, done bool) {
