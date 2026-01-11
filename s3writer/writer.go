@@ -50,8 +50,11 @@ const (
 	DefaultConcurrency = 3
 )
 
-// ErrClosed is returned by all Writer write methods after Close returns.
+// ErrClosed is returned by all Writer write methods after Writer.Close returns.
 var ErrClosed = errors.New("writer already closed")
+
+// ErrAborted is returned by all Writer write methods after Writer.Abort returns.
+var ErrAborted = errors.New("writer already aborted")
 
 // Writer uses either a single PutObject or multipart upload to upload content to S3.
 //
@@ -81,6 +84,23 @@ type Writer interface {
 	//
 	// After Close completes successfully, subsequent writes including Close will return ErrClosed.
 	Close() error
+
+	// Abort will explicitly call AbortMultipartUpload and returns the response.
+	//
+	// If multipart upload has not been started, two nil values will be returned.
+	//
+	// Subsequent io calls will return ErrAborted.
+	Abort() (*s3.AbortMultipartUploadOutput, error)
+
+	// GetCreateMultipartUploadOutput returns the response of the successful CreateMultipartUpload call for inspection.
+	//
+	// If multipart upload has not started successfully, this method returns nil.
+	GetCreateMultipartUploadOutput() *s3.CreateMultipartUploadOutput
+
+	// GetCompleteMultipartUploadOutput returns the response of the successful CompleteMultipartUpload call for inspection.
+	//
+	// If Close has not completed successfully, this method returns nil.
+	GetCompleteMultipartUploadOutput() *s3.CompleteMultipartUploadOutput
 }
 
 // Options customises the returned Writer of NewWriter.
@@ -195,15 +215,18 @@ type writer struct {
 	logger              io.Writer
 
 	// internal.
-	ex            executor.Executor
-	limiter       *rate.Limiter
-	buf           *bytes.Buffer
-	uploadId      *string
-	partNumber    int32
-	err           error
-	parts         sync.Map
-	hash          internal.Checksum
-	mupObjectSize int64
+	ex                            executor.Executor
+	limiter                       *rate.Limiter
+	buf                           *bytes.Buffer
+	uploadId                      *string
+	partNumber                    int32
+	err                           error
+	parts                         sync.Map
+	hash                          internal.Checksum
+	mpuObjectSize                 int64
+	abortMultipartUploadOutput    *s3.AbortMultipartUploadOutput
+	createMultipartUploadOutput   *s3.CreateMultipartUploadOutput
+	completeMultipartUploadOutput *s3.CompleteMultipartUploadOutput
 }
 
 func (w *writer) Write(p []byte) (int, error) {
@@ -232,6 +255,14 @@ func (eofReader) Read([]byte) (int, error) {
 }
 
 func (w *writer) Close() (err error) {
+	if errors.Is(w.err, ErrClosed) {
+		return w.err
+	}
+
+	if errors.Is(w.err, ErrAborted) {
+		return w.err
+	}
+
 	if _, err = w.write(eofReader{}, true); err != nil {
 		return w.setErr(err)
 	}
@@ -240,6 +271,40 @@ func (w *writer) Close() (err error) {
 	_ = w.ex.Close()
 	w.err = ErrClosed
 	return nil
+}
+
+func (w *writer) Abort() (*s3.AbortMultipartUploadOutput, error) {
+	if errors.Is(w.err, ErrClosed) {
+		return nil, w.err
+	}
+
+	if errors.Is(w.err, ErrAborted) {
+		return nil, w.err
+	}
+
+	// error from closing the executor is ignored so that we don't end up accidentally aborting the upload.
+	_ = w.ex.Close()
+
+	if w.abortMultipartUploadOutput, w.err = w.client.AbortMultipartUpload(context.Background(), &s3.AbortMultipartUploadInput{
+		Bucket:              w.input.Bucket,
+		Key:                 w.input.Key,
+		UploadId:            w.uploadId,
+		ExpectedBucketOwner: w.input.ExpectedBucketOwner,
+		RequestPayer:        w.input.RequestPayer,
+	}); w.err == nil {
+		w.err = ErrAborted
+		return w.abortMultipartUploadOutput, nil
+	}
+
+	return w.abortMultipartUploadOutput, w.err
+}
+
+func (w *writer) GetCreateMultipartUploadOutput() *s3.CreateMultipartUploadOutput {
+	return w.createMultipartUploadOutput
+}
+
+func (w *writer) GetCompleteMultipartUploadOutput() *s3.CompleteMultipartUploadOutput {
+	return w.completeMultipartUploadOutput
 }
 
 func (w *writer) write(src io.Reader, flush bool) (written int64, err error) {
@@ -275,7 +340,7 @@ func (w *writer) write(src io.Reader, flush bool) (written int64, err error) {
 		if n = int64(w.buf.Len()); n < w.partSize {
 			break
 		} else {
-			w.mupObjectSize += n
+			w.mpuObjectSize += n
 		}
 
 		if w.uploadId == nil {
@@ -340,7 +405,7 @@ func (w *writer) write(src io.Reader, flush bool) (written int64, err error) {
 		return written, nil
 	}
 
-	w.mupObjectSize += n
+	w.mpuObjectSize += n
 	w.partNumber++
 
 	if err = w.uploadPart(w.ctx, w.partNumber, w.buf.Bytes()); err != nil {
@@ -354,7 +419,7 @@ func (w *writer) write(src io.Reader, flush bool) (written int64, err error) {
 	return written, nil
 }
 
-func (w *writer) createMultipartUpload(ctx context.Context) error {
+func (w *writer) createMultipartUpload(ctx context.Context) (err error) {
 	input := &s3.CreateMultipartUploadInput{
 		Bucket:                    w.input.Bucket,
 		Key:                       w.input.Key,
@@ -390,9 +455,9 @@ func (w *writer) createMultipartUpload(ctx context.Context) error {
 
 	w.hash = internal.NewFromCreateMultipartUpload(input)
 
-	createMultipartUploadOutput, err := w.client.CreateMultipartUpload(ctx, input)
+	w.createMultipartUploadOutput, err = w.client.CreateMultipartUpload(ctx, input)
 	if err == nil {
-		w.uploadId = createMultipartUploadOutput.UploadId
+		w.uploadId = w.createMultipartUploadOutput.UploadId
 	}
 
 	return err
@@ -457,14 +522,14 @@ func (w *writer) completeMultipartUpload(ctx context.Context) (err error) {
 		return int(*a.PartNumber - *b.PartNumber)
 	})
 
-	_, err = w.client.CompleteMultipartUpload(ctx, w.hash.SumCompleteMultipartUpload(&s3.CompleteMultipartUploadInput{
+	w.completeMultipartUploadOutput, err = w.client.CompleteMultipartUpload(ctx, w.hash.SumCompleteMultipartUpload(&s3.CompleteMultipartUploadInput{
 		Bucket:               w.input.Bucket,
 		Key:                  w.input.Key,
 		UploadId:             w.uploadId,
 		ExpectedBucketOwner:  w.input.ExpectedBucketOwner,
 		IfMatch:              w.input.IfMatch,
 		IfNoneMatch:          w.input.IfNoneMatch,
-		MpuObjectSize:        &w.mupObjectSize,
+		MpuObjectSize:        &w.mpuObjectSize,
 		MultipartUpload:      &types.CompletedMultipartUpload{Parts: parts},
 		RequestPayer:         w.input.RequestPayer,
 		SSECustomerAlgorithm: w.input.SSECustomerAlgorithm,

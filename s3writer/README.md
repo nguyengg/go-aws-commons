@@ -39,6 +39,7 @@ func main() {
 	// open the file to get io.Reader and size.
 	f, _ := os.Open("/path/to/file")
 	fi, _ := f.Stat()
+	defer f.Close()
 
 	// s3writer.Writer implements io.Writer and io.ReaderFrom so I can start piping local file to upload.
 	// if running as CLI, s3writer.WithProgressBar will show a progress bar displaying progress.
@@ -54,7 +55,10 @@ func main() {
 	// either way below will work.
 	_, err = f.WriteTo(w)
 	//_, err = w.ReadFrom(f)
-	_ = f.Close()
+
+	// must close the s3writer.Writer instance in order to complete the multipart upload.
+	// should check for close error.
+	_ = w.Close()
 }
 
 ```
