@@ -167,7 +167,7 @@ func (l *ProgressLogger) defaultLogBytes(size, written int64, elapsed time.Durat
 func CreateSimpleLogFunction(logger *log.Logger, prefix string, showBytes bool) func(size, written int64, elapsed time.Duration, done bool) {
 	if showBytes {
 		return func(size, written int64, elapsed time.Duration, done bool) {
-			if size > 0 || (done && size != written) {
+			if size > 0 {
 				logger.Printf("%s%s / %s (%.2f%%) [%s]", prefix, humanize.IBytes(uint64(written)), humanize.IBytes(uint64(size)), 100.0*float64(written)/float64(size), elapsed)
 			} else {
 				logger.Printf("%s%s [%s]", prefix, humanize.IBytes(uint64(written)), elapsed)
@@ -176,7 +176,7 @@ func CreateSimpleLogFunction(logger *log.Logger, prefix string, showBytes bool) 
 	}
 
 	return func(size, written int64, elapsed time.Duration, done bool) {
-		if size > 0 || (done && size != written) {
+		if size > 0 {
 			logger.Printf("%s%d / %d (%.2f%%) [%s]", prefix, written, size, 100.0*float64(written)/float64(size), elapsed)
 		} else {
 			logger.Printf("%s%d [%s]", prefix, written, elapsed)
