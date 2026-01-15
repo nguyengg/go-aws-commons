@@ -14,35 +14,22 @@ import (
 	"golang.org/x/time/rate"
 )
 
-// DefaultBytes creates and customises a ProgressLogger for reading/writing bytes progress.
-//
-// The size and desc arguments are passed to the underlying progressbar.ProgressBar as-is if progressbar.ProgressBar is
-// used. Otherwise, desc will be used as a prefix for log messages such as "desc x MiB / y GiB (z %) [elapsedTime]".
-//
-// If you need to customise the progressbar further, pass WithProgressBarOptions.
-func DefaultBytes(size int64, desc string, optFns ...func(*ProgressLogger)) *ProgressLogger {
-	logger := &ProgressLogger{
-		Size:   size,
-		Rate:   &rate.Sometimes{Interval: 5 * time.Second},
-		Logger: log.Default(),
+// DefaultBytes is a convenient method for building io.WriteCloser loggers without explicitly using NewBuilder.
+func DefaultBytes(size int64, desc string, optFns ...func(*Builder)) io.WriteCloser {
+	b := &Builder{
+		Size: size,
+		Rate: &rate.Sometimes{Interval: 5 * time.Second},
 
 		options: defaultBytesOptions,
 	}
+
+	b.WithMessagePrefix(strings.TrimSuffix(desc, " ") + " ")
+
 	for _, fn := range optFns {
-		fn(logger)
+		fn(b)
 	}
 
-	if term.IsTerminal(int(os.Stderr.Fd())) {
-		logger.bar = progressbar.NewOptions64(size, append([]progressbar.Option{progressbar.OptionSetDescription(desc)}, logger.options...)...)
-	} else if logger.Log == nil {
-		if desc != "" {
-			logger.Log = CreateSimpleLogFunction(logger.Logger, desc+" ", true)
-		} else {
-			logger.Log = logger.defaultLogBytes
-		}
-	}
-
-	return logger
+	return b.Build()
 }
 
 // DefaultBytesWriter is a variant of DefaultBytes that is given an io.Writer instead.
@@ -50,7 +37,7 @@ func DefaultBytes(size int64, desc string, optFns ...func(*ProgressLogger)) *Pro
 // If w is an os.File, its name and size will be used to generate a sensible progressbar's description or log message
 // prefix. The desc argument can include `{name}` or `{basename}` which will be replaced with the actual file's name
 // ([os.File.Name]) or basename accordingly.
-func DefaultBytesWriter(w io.Writer, desc string, optFns ...func(*ProgressLogger)) *ProgressLogger {
+func DefaultBytesWriter(w io.Writer, desc string, optFns ...func(builder *Builder)) io.WriteCloser {
 	var size int64 = -1
 
 	if f, ok := w.(*os.File); ok {
@@ -77,7 +64,7 @@ func DefaultBytesWriter(w io.Writer, desc string, optFns ...func(*ProgressLogger
 // If r is an os.File, its name and size will be used to generate a sensible progressbar's description or log message
 // prefix. The desc argument can include `{name}` or `{basename}` which will be replaced with the actual file's name
 // ([os.File.Name]) or basename accordingly.
-func DefaultBytesReader(r io.Reader, desc string, optFns ...func(*ProgressLogger)) *ProgressLogger {
+func DefaultBytesReader(r io.Reader, desc string, optFns ...func(*Builder)) io.WriteCloser {
 	var size int64 = -1
 
 	if f, ok := r.(*os.File); ok {
@@ -100,38 +87,29 @@ func DefaultBytesReader(r io.Reader, desc string, optFns ...func(*ProgressLogger
 }
 
 // DefaultCounter is a variant of DefaultBytes that sets up the progressbar and logger for a counter instead.
-func DefaultCounter(n int, desc string, optFns ...func(*ProgressLogger)) *ProgressLogger {
-	logger := &ProgressLogger{
-		Size:   int64(n),
-		Rate:   &rate.Sometimes{Interval: 5 * time.Second},
-		Logger: log.Default(),
+func DefaultCounter(n int, desc string, optFns ...func(*Builder)) io.WriteCloser {
+	b := &Builder{
+		Size: int64(n),
+		Rate: &rate.Sometimes{Interval: 5 * time.Second},
 
 		options: defaultCounterOptions,
 	}
 	for _, fn := range optFns {
-		fn(logger)
+		fn(b)
 	}
 
 	if term.IsTerminal(int(os.Stderr.Fd())) {
-		logger.bar = progressbar.NewOptions(n, append([]progressbar.Option{progressbar.OptionSetDescription(desc)}, logger.options...)...)
-	} else if logger.Log == nil {
+		b.Size = int64(n)
+		b.options = append([]progressbar.Option{progressbar.OptionSetDescription(desc)}, b.options...)
+	} else if b.LogFn == nil {
 		if desc != "" {
-			logger.Log = CreateSimpleLogFunction(logger.Logger, desc+" ", false)
+			b.LogFn = CreateSimpleLogFunction(log.Default(), desc+" ", "", false)
 		} else {
-			logger.Log = CreateSimpleLogFunction(logger.Logger, "", false)
+			b.LogFn = CreateSimpleLogFunction(log.Default(), "", "", false)
 		}
 	}
 
-	return logger
-}
-
-// WithProgressBarOptions provides a way to customise the progressbar options manually.
-//
-// This will replace existing options from DefaultBytes and DefaultCounter.
-func WithProgressBarOptions(options ...progressbar.Option) func(*ProgressLogger) {
-	return func(logger *ProgressLogger) {
-		logger.options = options
-	}
+	return b.Build()
 }
 
 var defaultBytesOptions = []progressbar.Option{

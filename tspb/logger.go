@@ -3,30 +3,18 @@ package tspb
 import (
 	"io"
 	"log"
-	"os"
 	"sync"
 	"time"
 
 	"github.com/dustin/go-humanize"
-	"github.com/schollz/progressbar/v3"
-	"golang.org/x/term"
 	"golang.org/x/time/rate"
 )
 
-// ProgressLogger either uses progressbar.ProgressBar if os.Stderr is a terminal, or fallbacks to logging otherwise.
+// ProgressLogger always logs using the provided log.Logger instance.
 //
-// The zero-value ProgressLogger is ready for use and will detect whether to use progressbar.ProgressBar or log.Default
-// on the first Write. In order to move this detection logic earlier, or to customise the ProgressLogger and/or the
-// underlying progressbar, use DefaultBytes instead.
+// The zero-value ProgressLogger is ready for use.
 //
-// ProgressLogger implements io.Writer to provide progress logging similar to progressbar.ProgressBar. The intended
-// usage of this struct is to log progress such as writing "writing x MiB / y GiB (z %) [elapsedTime]" for progress
-// reporting with throttling (once every 5 seconds), and when completed successfully log
-// "wrote x MiB / y GiB (z %) GiB [elapsedTime]" once.
-//
-// Close should always be called to apply the completion logic of the progressbar ([progressbar.ProgressBar.Exit]).
-// Finish should be called only if process has completed successfully; this will call [progressbar.ProgressBar.Finish]
-// to fill the progressbar and trigger completion logic.
+// To customise the message, use NewBuilder.
 type ProgressLogger struct {
 	// Size is the expected size.
 	//
@@ -38,20 +26,10 @@ type ProgressLogger struct {
 	// By default, only log every 5 seconds. Specify a zero-value rate.Sometimes to apply no throttling.
 	Rate *rate.Sometimes
 
-	// Log is used to log progress only if progressbar.ProgressBar is not used.
-	//
-	// By default, this uses log.Default to log with messages such as "writing x MiB / y GiB (z %) [elapsedTime]"
-	// for every Write, and "wrote y GiB [elapsedTime]" on Close.
-	Log func(size, written int64, elapsed time.Duration, done bool)
-
-	// Logger is the instance that the default implementation of Log uses.
-	//
-	// Default to log.Default.
-	Logger *log.Logger
+	// LogFn is used to log progress.
+	LogFn LogFunction
 
 	once, finished sync.Once
-	options        []progressbar.Option
-	bar            *progressbar.ProgressBar
 	written        int64
 	start          time.Time
 }
@@ -62,29 +40,8 @@ func (l *ProgressLogger) init() {
 	l.once.Do(func() {
 		l.start = time.Now()
 
-		if l.bar != nil {
-			return
-		}
-
-		if l.Size == 0 {
-			l.Size = -1
-		}
-
-		if term.IsTerminal(int(os.Stderr.Fd())) {
-			if len(l.options) != 0 {
-				l.bar = progressbar.NewOptions64(l.Size, l.options...)
-			} else {
-				l.bar = progressbar.NewOptions64(l.Size, defaultBytesOptions...)
-			}
-			return
-		}
-
-		if l.Logger == nil {
-			l.Logger = log.Default()
-		}
-
-		if l.Log == nil {
-			l.Log = l.defaultLogBytes
+		if l.LogFn == nil {
+			l.LogFn = CreateSimpleLogFunction(log.Default(), "writing ", "wrote ", true)
 		}
 	})
 }
@@ -92,16 +49,12 @@ func (l *ProgressLogger) init() {
 func (l *ProgressLogger) Write(p []byte) (n int, err error) {
 	l.init()
 
-	if l.bar != nil {
-		return l.bar.Write(p)
-	}
-
 	n = len(p)
 	l.written += int64(n)
 
 	l.Rate.Do(func() {
-		elapsed := time.Now().Sub(l.start).Truncate(time.Second)
-		l.Log(l.Size, l.written, elapsed, false)
+		elapsed := time.Since(l.start).Truncate(time.Second)
+		l.LogFn(l.Size, l.written, elapsed, false)
 	})
 	return
 }
@@ -115,62 +68,52 @@ func (l *ProgressLogger) Close() (err error) {
 	l.init()
 
 	l.finished.Do(func() {
-		if l.bar != nil {
-			err = l.bar.Exit()
-			return
-		}
-
-		elapsed := time.Now().Sub(l.start).Truncate(time.Second)
-		l.Log(l.Size, l.written, elapsed, true)
+		elapsed := time.Since(l.start).Truncate(time.Second)
+		l.LogFn(l.Size, l.written, elapsed, true)
 	})
 	return
-}
-
-// Finish should only be called if progress has completed successfully.
-//
-// If not in terminal, print a final log message showing current progress. If progressbar is used,
-// [progressbar.ProgressBar.Finish] will be called which also triggers completion hook.
-func (l *ProgressLogger) Finish() (err error) {
-	l.init()
-
-	l.finished.Do(func() {
-		if l.bar != nil {
-			err = l.bar.Finish()
-			return
-		}
-
-		elapsed := time.Now().Sub(l.start).Truncate(time.Second)
-		l.Log(l.Size, l.written, elapsed, true)
-	})
-	return
-}
-
-func (l *ProgressLogger) defaultLogBytes(size, written int64, elapsed time.Duration, done bool) {
-	if done {
-		if size > 0 && size != written {
-			l.Logger.Printf("wrote %s / %s (%.2f%%) [%s]", humanize.IBytes(uint64(written)), humanize.IBytes(uint64(size)), 100.0*float64(written)/float64(size), elapsed)
-		} else {
-			l.Logger.Printf("wrote %s [%s]", humanize.IBytes(uint64(written)), elapsed)
-		}
-
-		return
-	}
-
-	if size > 0 {
-		l.Logger.Printf("writing %s / %s (%.2f%%) [%s]", humanize.IBytes(uint64(written)), humanize.IBytes(uint64(size)), 100.0*float64(written)/float64(size), elapsed)
-	} else {
-		l.Logger.Printf("writing %s [%s]", humanize.IBytes(uint64(written)), elapsed)
-	}
 }
 
 // CreateSimpleLogFunction creates a sensible no-nonsense logging function that is good enough most of the time.
-func CreateSimpleLogFunction(logger *log.Logger, prefix string, showBytes bool) func(size, written int64, elapsed time.Duration, done bool) {
+func CreateSimpleLogFunction(logger *log.Logger, prefix, donePrefix string, showBytes bool) func(size, written int64, elapsed time.Duration, done bool) {
 	if showBytes {
+		if donePrefix != "" {
+			return func(size, written int64, elapsed time.Duration, done bool) {
+				if done {
+					if size > 0 && size != written {
+						logger.Printf("%s%s / %s (%.2f%%) [%s]", donePrefix, humanize.IBytes(uint64(written)), humanize.IBytes(uint64(size)), 100.0*float64(written)/float64(size), elapsed)
+					} else {
+						logger.Printf("%s%s [%s]", donePrefix, humanize.IBytes(uint64(written)), elapsed)
+					}
+				} else if size > 0 {
+					logger.Printf("%s%s / %s (%.2f%%) [%s]", prefix, humanize.IBytes(uint64(written)), humanize.IBytes(uint64(size)), 100.0*float64(written)/float64(size), elapsed)
+				} else {
+					logger.Printf("%s%s [%s]", prefix, humanize.IBytes(uint64(written)), elapsed)
+				}
+			}
+		}
+
 		return func(size, written int64, elapsed time.Duration, done bool) {
 			if size > 0 {
 				logger.Printf("%s%s / %s (%.2f%%) [%s]", prefix, humanize.IBytes(uint64(written)), humanize.IBytes(uint64(size)), 100.0*float64(written)/float64(size), elapsed)
 			} else {
 				logger.Printf("%s%s [%s]", prefix, humanize.IBytes(uint64(written)), elapsed)
+			}
+		}
+	}
+
+	if donePrefix != "" {
+		return func(size, written int64, elapsed time.Duration, done bool) {
+			if done {
+				if size > 0 {
+					logger.Printf("%s%d / %d (%.2f%%) [%s]", donePrefix, written, size, 100.0*float64(written)/float64(size), elapsed)
+				} else {
+					logger.Printf("%s%d [%s]", donePrefix, written, elapsed)
+				}
+			} else if size > 0 {
+				logger.Printf("%s%d / %d (%.2f%%) [%s]", prefix, written, size, 100.0*float64(written)/float64(size), elapsed)
+			} else {
+				logger.Printf("%s%d [%s]", prefix, written, elapsed)
 			}
 		}
 	}
