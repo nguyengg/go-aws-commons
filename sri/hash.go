@@ -6,7 +6,6 @@ import (
 	"crypto/sha512"
 	"encoding/base64"
 	"hash"
-	"os"
 	"strings"
 	"sync"
 )
@@ -71,8 +70,6 @@ func NewSha512() Hash {
 
 func parse(digest string) (h Hash, name string) {
 	values := strings.SplitN(digest, "-", 2)
-	f, _ := os.Open("/path/to/file")
-	_, _ = f.WriteTo(h)
 	switch name = values[0]; name {
 	case "sha1":
 		h = NewSha1()
