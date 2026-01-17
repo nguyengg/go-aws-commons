@@ -90,7 +90,7 @@ func (b *Builder) BuildProgressLogger() *ProgressLogger {
 	return &ProgressLogger{
 		Size:  b.Size,
 		Rate:  b.Rate,
-		LogFn: b.LogFn,
+		LogFn: logFn,
 	}
 }
 
