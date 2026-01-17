@@ -35,11 +35,16 @@ type Builder struct {
 type LogFunction func(size, written int64, elapsed time.Duration, done bool)
 
 // NewBuilder provides a fluent interface to building the io.WriteCloser-compatible progress logger.
-func NewBuilder() *Builder {
-	return &Builder{
+func NewBuilder(optFns ...func(*Builder)) *Builder {
+	b := &Builder{
 		prefix:     "writing ",
 		donePrefix: "wrote ",
 	}
+	for _, fn := range optFns {
+		fn(b)
+	}
+
+	return b
 }
 
 // WithProgressBarOptions provides a way to customise the progressbar options manually.
