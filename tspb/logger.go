@@ -40,6 +40,10 @@ func (l *ProgressLogger) init() {
 	l.once.Do(func() {
 		l.start = time.Now()
 
+		if l.Rate == nil {
+			l.Rate = &rate.Sometimes{Interval: 5 * time.Second}
+		}
+
 		if l.LogFn == nil {
 			l.LogFn = CreateSimpleLogFunction(log.Default(), "writing ", "wrote ", true)
 		}
