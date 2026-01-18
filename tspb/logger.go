@@ -10,9 +10,10 @@ import (
 	"golang.org/x/time/rate"
 )
 
-// ProgressLogger always logs using the provided log.Logger instance.
+// ProgressLogger always logs using the provided LogFn instance.
 //
-// The zero-value ProgressLogger is ready for use.
+// The zero-value ProgressLogger is ready for use. Unlike progressbar.ProgressBar, you do not have to call Close
+// explicitly. You only need to call it if you would like to log a special message for having finished the operation.
 //
 // To customise the message, use NewBuilder.
 type ProgressLogger struct {
@@ -57,23 +58,16 @@ func (l *ProgressLogger) Write(p []byte) (n int, err error) {
 	l.written += int64(n)
 
 	l.Rate.Do(func() {
-		elapsed := time.Since(l.start).Truncate(time.Second)
-		l.LogFn(l.Size, l.written, elapsed, false)
+		l.LogFn(l.Size, l.written, time.Since(l.start).Truncate(time.Second), false)
 	})
 	return
 }
 
-// Close should always be called as a deferred function.
-//
-// If not in terminal, print a final log message showing current progress. If progressbar is used,
-// [progressbar.ProgressBar.Exit] will be called to force completion hook to run without completing the progressbar
-// unlike Finish.
 func (l *ProgressLogger) Close() (err error) {
 	l.init()
 
 	l.finished.Do(func() {
-		elapsed := time.Since(l.start).Truncate(time.Second)
-		l.LogFn(l.Size, l.written, elapsed, true)
+		l.LogFn(l.Size, l.written, time.Since(l.start).Truncate(time.Second), true)
 	})
 	return
 }

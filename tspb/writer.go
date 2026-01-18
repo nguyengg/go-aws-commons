@@ -55,6 +55,18 @@ func (b *Builder) WithProgressBarOptions(options ...progressbar.Option) *Builder
 	return b
 }
 
+// WithSize updates the expected size.
+func (b *Builder) WithSize(size int64) *Builder {
+	b.Size = size
+	return b
+}
+
+// WithRateInterval updates the Builder.Rate.
+func (b *Builder) WithRateInterval(duration time.Duration) *Builder {
+	b.Rate = &rate.Sometimes{Interval: duration}
+	return b
+}
+
 // WithMessagePrefix customises the Log function using the given prefixes.
 //
 // The prefix argument will create log messages such as "{prefix}x MiB / y GiB (z %) [elapsed]". If donePrefix is

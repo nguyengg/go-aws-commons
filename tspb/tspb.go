@@ -3,14 +3,12 @@ package tspb
 import (
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/schollz/progressbar/v3"
-	"golang.org/x/term"
 	"golang.org/x/time/rate"
 )
 
@@ -20,7 +18,7 @@ func DefaultBytes(size int64, desc string, optFns ...func(*Builder)) io.WriteClo
 		Size: size,
 		Rate: &rate.Sometimes{Interval: 5 * time.Second},
 
-		options: defaultBytesOptions,
+		options: append(defaultBytesOptions, progressbar.OptionSetDescription(desc)),
 	}
 
 	b.WithMessagePrefix(strings.TrimSuffix(desc, " ") + " ")
@@ -87,26 +85,15 @@ func DefaultBytesReader(r io.Reader, desc string, optFns ...func(*Builder)) io.W
 }
 
 // DefaultCounter is a variant of DefaultBytes that sets up the progressbar and logger for a counter instead.
-func DefaultCounter(n int, desc string, optFns ...func(*Builder)) io.WriteCloser {
+func DefaultCounter(desc string, optFns ...func(*Builder)) io.WriteCloser {
 	b := &Builder{
-		Size: int64(n),
+		Size: -1,
 		Rate: &rate.Sometimes{Interval: 5 * time.Second},
 
-		options: defaultCounterOptions,
+		options: append(defaultCounterOptions, progressbar.OptionSetDescription(desc)),
 	}
 	for _, fn := range optFns {
 		fn(b)
-	}
-
-	if term.IsTerminal(int(os.Stderr.Fd())) {
-		b.Size = int64(n)
-		b.options = append([]progressbar.Option{progressbar.OptionSetDescription(desc)}, b.options...)
-	} else if b.LogFn == nil {
-		if desc != "" {
-			b.LogFn = CreateSimpleLogFunction(log.Default(), desc+" ", "", false)
-		} else {
-			b.LogFn = CreateSimpleLogFunction(log.Default(), "", "", false)
-		}
 	}
 
 	return b.Build()
@@ -115,21 +102,14 @@ func DefaultCounter(n int, desc string, optFns ...func(*Builder)) io.WriteCloser
 var defaultBytesOptions = []progressbar.Option{
 	progressbar.OptionShowBytes(true),
 	progressbar.OptionShowTotalBytes(true),
-	progressbar.OptionShowCount(),
+	progressbar.OptionUseIECUnits(true),
+	progressbar.OptionSetElapsedTime(true),
+	progressbar.OptionSetPredictTime(true),
 	progressbar.OptionShowElapsedTimeOnFinish(),
 	progressbar.OptionThrottle(1 * time.Second),
-	progressbar.OptionOnCompletion(func() {
-		_, _ = os.Stderr.WriteString("\n")
-	}),
 }
 
 var defaultCounterOptions = []progressbar.Option{
-	progressbar.OptionShowBytes(false),
-	progressbar.OptionShowTotalBytes(false),
 	progressbar.OptionShowCount(),
-	progressbar.OptionShowElapsedTimeOnFinish(),
 	progressbar.OptionThrottle(1 * time.Second),
-	progressbar.OptionOnCompletion(func() {
-		_, _ = os.Stderr.WriteString("\n")
-	}),
 }
