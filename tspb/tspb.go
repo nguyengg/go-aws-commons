@@ -100,16 +100,34 @@ func DefaultCounter(desc string, optFns ...func(*Builder)) io.WriteCloser {
 }
 
 var defaultBytesOptions = []progressbar.Option{
+	// matching progressbar.DefaultBytes.
+	progressbar.OptionSetWriter(os.Stderr),
 	progressbar.OptionShowBytes(true),
 	progressbar.OptionShowTotalBytes(true),
+	progressbar.OptionSetWidth(10),
+	progressbar.OptionThrottle(1 * time.Second), // 65ms is too short imo.
+	progressbar.OptionShowCount(),
+	progressbar.OptionOnCompletion(func() {
+		_, _ = fmt.Fprint(os.Stderr, "\n")
+	}),
+	progressbar.OptionSpinnerType(14),
+	progressbar.OptionFullWidth(),
+	progressbar.OptionSetRenderBlankState(true),
+	// my own additions.
 	progressbar.OptionUseIECUnits(true),
 	progressbar.OptionSetElapsedTime(true),
 	progressbar.OptionSetPredictTime(true),
 	progressbar.OptionShowElapsedTimeOnFinish(),
-	progressbar.OptionThrottle(1 * time.Second),
 }
 
 var defaultCounterOptions = []progressbar.Option{
-	progressbar.OptionShowCount(),
+	progressbar.OptionSetWriter(os.Stderr),
+	progressbar.OptionShowBytes(false),
+	progressbar.OptionShowTotalBytes(false),
+	progressbar.OptionSetWidth(10),
 	progressbar.OptionThrottle(1 * time.Second),
+	progressbar.OptionShowCount(),
+	progressbar.OptionOnCompletion(func() {
+		_, _ = fmt.Fprint(os.Stderr, "\n")
+	}),
 }
