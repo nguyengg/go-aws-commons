@@ -55,16 +55,52 @@ func (b *Builder) WithProgressBarOptions(options ...progressbar.Option) *Builder
 	return b
 }
 
+// WithProgressBarOptions provides a way to customise the progressbar options manually.
+//
+// This will replace existing options from previous invocations.
+func WithProgressBarOptions(options ...progressbar.Option) func(*Builder) {
+	return func(b *Builder) {
+		b.WithProgressBarOptions(options...)
+	}
+}
+
 // WithSize updates the expected size.
 func (b *Builder) WithSize(size int64) *Builder {
 	b.Size = size
 	return b
 }
 
+// WithSize updates the expected size.
+func WithSize(size int64) func(*Builder) {
+	return func(b *Builder) {
+		b.WithSize(size)
+	}
+}
+
 // WithRateInterval updates the Builder.Rate.
 func (b *Builder) WithRateInterval(duration time.Duration) *Builder {
 	b.Rate = &rate.Sometimes{Interval: duration}
 	return b
+}
+
+// WithRateInterval updates the Builder.Rate.
+func WithRateInterval(duration time.Duration) func(*Builder) {
+	return func(b *Builder) {
+		b.WithRateInterval(duration)
+	}
+}
+
+// WithLogger replaces the existing Builder.LogFn with one created by CreateSimpleLogFunction using the provided logger.
+func (b *Builder) WithLogger(logger *log.Logger) *Builder {
+	b.LogFn = CreateSimpleLogFunction(logger, b.prefix, b.donePrefix, true)
+	return b
+}
+
+// WithLogger replaces the existing Builder.LogFn with one created by CreateSimpleLogFunction using the provided logger.
+func WithLogger(logger *log.Logger) func(*Builder) {
+	return func(b *Builder) {
+		b.WithLogger(logger)
+	}
 }
 
 // WithMessagePrefix customises the Log function using the given prefixes.
@@ -81,6 +117,16 @@ func (b *Builder) WithMessagePrefix(prefix string, donePrefix ...string) *Builde
 	}
 
 	return b
+}
+
+// WithMessagePrefix customises the Log function using the given prefixes.
+//
+// The prefix argument will create log messages such as "{prefix}x MiB / y GiB (z %) [elapsed]". If donePrefix is
+// given, only its first argument will be used to log done messages such as "{donePrefix}x MiB / y GiB (z %) [elapsed]".
+func WithMessagePrefix(prefix string, donePrefix ...string) func(*Builder) {
+	return func(b *Builder) {
+		b.WithMessagePrefix(prefix, donePrefix...)
+	}
 }
 
 // Build will return either a progressbar.ProgressBar or ProgressLogger depending on whether os.Stderr is a terminal.
