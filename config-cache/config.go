@@ -45,7 +45,7 @@ func MustGet(ctx context.Context) aws.Config {
 		return cfg
 	}
 
-	if cfg, err = LoadDefaultConfig(ctx); err != nil {
+	if cfg, err = config.LoadDefaultConfig(ctx); err != nil {
 		panic(err)
 	}
 	set = true
