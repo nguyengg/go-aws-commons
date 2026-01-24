@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	awsmw "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/smithy-go"
@@ -14,7 +15,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// WithClientSideMetrics adds a ClientSideMetricsMiddleware to the config.
+// WithClientSideMetrics adds a ClientSideMetricsMiddleware to the config that is being created.
 //
 // Usage:
 //
@@ -26,12 +27,25 @@ func WithClientSideMetrics(options ...Option) func(*config.LoadOptions) error {
 	}
 }
 
+// AddClientSideMetrics adds a ClientSideMetricsMiddleware to the config that has been created and is passed here.
+//
+// Usage:
+//
+//	cfg, _ := config.LoadDefaultConfig(ctx)
+//	metrics.AddClientSideMetrics(cfg)
+func AddClientSideMetrics(cfg *aws.Config, options ...Option) {
+	cfg.APIOptions = append(cfg.APIOptions, ClientSideMetricsMiddleware(options...))
+}
+
 // ClientSideMetricsMiddleware creates a new middleware to add client-side latency metrics about the requests.
 //
 // Usage:
 //
 //	cfg, _ := config.LoadDefaultConfig(ctx)
 //	cfg.APIOptions = append(cfg.APIOptions, metrics.ClientSideMetricsMiddleware())
+//
+//	// alternatively
+//	metrics.AddClientSideMetrics(cfg)
 //
 // A metrics.Metrics instance must be available from context by the time the middleware receives a response. By default,
 // zerolog.Ctx is used to retrieve a zerolog.Logger instance that logs the metrics instance. This can be customised via
