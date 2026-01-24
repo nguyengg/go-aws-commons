@@ -25,15 +25,14 @@ func Get(ctx context.Context, optFns ...func(*aws.Config)) (aws.Config, error) {
 	defer lock.Unlock()
 
 	if !set {
-		cfg, err = LoadDefaultConfig(ctx)
+		cfg, err = config.LoadDefaultConfig(ctx)
 		set = true
-		if err != nil {
-			return cfg, err
-		}
 	}
 
-	for _, fn := range optFns {
-		fn(&cfg)
+	if err == nil {
+		for _, fn := range optFns {
+			fn(&cfg)
+		}
 	}
 
 	return cfg, err
