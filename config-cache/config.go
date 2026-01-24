@@ -20,35 +20,43 @@ var (
 // Get returns the current [aws.Config] and any error from creating it.
 //
 // Default to using [config.LoadDefaultConfig] if no [aws.Config] instance has been cached.
-func Get(ctx context.Context) (aws.Config, error) {
+func Get(ctx context.Context, optFns ...func(*aws.Config)) (aws.Config, error) {
 	lock.Lock()
 	defer lock.Unlock()
 
-	if set {
-		return cfg, err
+	if !set {
+		cfg, err = LoadDefaultConfig(ctx)
+		set = true
+		if err != nil {
+			return cfg, err
+		}
 	}
 
-	cfg, err = LoadDefaultConfig(ctx)
-	set = true
+	for _, fn := range optFns {
+		fn(&cfg)
+	}
+
 	return cfg, err
 }
 
 // MustGet is a panicky variant of Get.
-func MustGet(ctx context.Context) aws.Config {
+func MustGet(ctx context.Context, optFns ...func(*aws.Config)) aws.Config {
 	lock.Lock()
 	defer lock.Unlock()
 
-	if set {
-		if err != nil {
-			panic(err)
-		}
-		return cfg
+	if !set {
+		cfg, err = config.LoadDefaultConfig(ctx)
+		set = true
 	}
 
-	if cfg, err = config.LoadDefaultConfig(ctx); err != nil {
+	if err != nil {
 		panic(err)
 	}
-	set = true
+
+	for _, fn := range optFns {
+		fn(&cfg)
+	}
+
 	return cfg
 }
 
