@@ -8,7 +8,7 @@ package main
 import (
 	"context"
 
-	. "github.com/nguyengg/golambda/must"
+	. "github.com/nguyengg/go-aws-commons/must"
 )
 
 func main() {
