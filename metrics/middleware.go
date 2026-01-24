@@ -33,8 +33,11 @@ func WithClientSideMetrics(options ...Option) func(*config.LoadOptions) error {
 //
 //	cfg, _ := config.LoadDefaultConfig(ctx)
 //	metrics.AddClientSideMetrics(cfg)
-func AddClientSideMetrics(cfg *aws.Config, options ...Option) {
-	cfg.APIOptions = append(cfg.APIOptions, ClientSideMetricsMiddleware(options...))
+//
+//	// alternatively
+//	configcache.Get(ctx, metrics.AddClientSideMetrics)
+func AddClientSideMetrics(cfg *aws.Config) {
+	cfg.APIOptions = append(cfg.APIOptions, ClientSideMetricsMiddleware())
 }
 
 // ClientSideMetricsMiddleware creates a new middleware to add client-side latency metrics about the requests.
