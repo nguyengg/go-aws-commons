@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	configcache "github.com/nguyengg/go-aws-commons/config-cache"
 )
 
 // Manager provides methods to execute DynamoDB requests.
@@ -17,7 +17,7 @@ import (
 type Manager struct {
 	// Client is the DynamoDB client to execute requests.
 	//
-	// If not given, the default config (`config.LoadDefaultConfig`) will be used to create the DynamoDB client.
+	// If not given, the default config (`configcache.Get`) will be used to create the DynamoDB client.
 	Client ManagerAPIClient
 
 	// Builder is the Builder instance to use when building input parameters.
@@ -88,7 +88,7 @@ func (m *Manager) decode(err error, values interface{}, valuesOnConditionCheckFa
 
 func (m *Manager) initFn(ctx context.Context) error {
 	if m.Client == nil {
-		cfg, err := config.LoadDefaultConfig(ctx)
+		cfg, err := configcache.Get(ctx)
 		if err != nil {
 			return err
 		}

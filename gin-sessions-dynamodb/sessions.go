@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/gorilla/context"
+	configcache "github.com/nguyengg/go-aws-commons/config-cache"
 	"github.com/nguyengg/go-aws-commons/ddb"
 )
 
@@ -58,7 +58,7 @@ func Sessions[T interface{}](name string, optFns ...func(*Session)) gin.HandlerF
 			fn(s)
 		}
 		if s.Client == nil {
-			cfg, err := config.LoadDefaultConfig(c)
+			cfg, err := configcache.Get(c)
 			if err != nil {
 				_ = c.AbortWithError(http.StatusInternalServerError, err)
 				return

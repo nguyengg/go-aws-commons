@@ -17,7 +17,7 @@ import (
 type Session struct {
 	// Client is the DynamoDB client for saving session data.
 	//
-	// By default, `config.LoadDefaultConfig` will be used to provide an instance.
+	// By default, `configcache.Get` will be used to provide an instance.
 	Client ddb.ManagerAPIClient
 
 	// ClientOptions is passed to every DynamoDB call.

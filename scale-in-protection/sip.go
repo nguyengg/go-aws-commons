@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
+	configcache "github.com/nguyengg/go-aws-commons/config-cache"
 )
 
 // ScaleInProtector monitors active statuses of several workers to enable or disable scale-in protection accordingly.
@@ -22,7 +22,7 @@ import (
 type ScaleInProtector struct {
 	// InstanceId is the instance Id to enable or disable scale-in protection.
 	//
-	// If not specified, an imds.Client created from the default aws.Config (config.LoadDefaultConfig) will be used to
+	// If not specified, an imds.Client created from the default aws.Config (configcache.Get) will be used to
 	// detect the instance Id of the host. If one cannot be detected, StartMonitoring will return a non-nil error.
 	InstanceId string
 	// AutoScalingGroupName is the name of the Auto Scaling group that contains the instance specified by InstanceId.
@@ -35,7 +35,7 @@ type ScaleInProtector struct {
 	AutoScalingGroupName string
 	// AutoScaling is the client that will be used to make Auto Scaling service calls.
 	//
-	// If not given, an autoscaling.Client created from the default aws.Config (config.LoadDefaultConfig) will be used.
+	// If not given, an autoscaling.Client created from the default aws.Config (configcache.Get) will be used.
 	AutoScaling AutoScalingAPIClient
 	// IdleAtLeast specifies the amount of time all workers must have been idle before scale-in protection may be
 	// disabled.
@@ -156,7 +156,7 @@ func (s *ScaleInProtector) init(ctx context.Context) error {
 	}
 
 	if s.InstanceId == "" {
-		cfg, err := config.LoadDefaultConfig(ctx)
+		cfg, err := configcache.Get(ctx)
 		if err != nil {
 			return fmt.Errorf("create default config error: %w", err)
 		}
@@ -172,7 +172,7 @@ func (s *ScaleInProtector) init(ctx context.Context) error {
 	}
 
 	if s.AutoScaling == nil {
-		cfg, err := config.LoadDefaultConfig(ctx)
+		cfg, err := configcache.Get(ctx)
 		if err != nil {
 			return fmt.Errorf("create default config error: %w", err)
 		}
