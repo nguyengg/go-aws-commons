@@ -1,6 +1,6 @@
 # Global AWS Config Cache
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/nguyengg/go-aws-commonds/config.svg)](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/config)
+[![Go Reference](https://pkg.go.dev/badge/github.com/nguyengg/go-aws-commonds/config-cache.svg)](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/config-cache)
 
 Golang prefers zero-value structs to be usable out of the box. As a result, a common pattern is for the structs to
 perform one-time initialisation (via `sync.Once`) to set up sensible defaults, including AWS clients like this:
