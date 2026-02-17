@@ -11,7 +11,7 @@ import (
 	"github.com/nguyengg/go-aws-commons/metrics"
 )
 
-// StartHandlerFunc is a wrapper around [lambda.StartHandlerFunc] that adds sensible defaults.
+// StartHandlerFunc is a wrapper around [lambda.StartHandlerFunc] that adds sensible logging and metrics out of the box.
 func StartHandlerFunc[TIn any, TOut any](handler func(context.Context, TIn) (TOut, error), options ...lambda.Option) {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{ReplaceAttr: metrics.ReplaceAttr()})))
 
@@ -19,21 +19,21 @@ func StartHandlerFunc[TIn any, TOut any](handler func(context.Context, TIn) (TOu
 		ctx, m := setUp(ctx)
 
 		defer func() {
-			var logLevel = slog.LevelInfo
-
-			if r := recover(); r != nil {
-				m.AddCounter("panicked", 1, "fault")
+			switch r := recover(); {
+			case r != nil:
+				m.Panicked()
 				m.Any("error", r)
-				logLevel = slog.LevelError
-			} else if err != nil {
-				m.AddCounter("fault", 1, "panicked")
-				m.Any("error", err)
-				logLevel = slog.LevelError
-			} else {
-				m.SetCounter("fault", 0, "panicked")
-			}
+				slog.LogAttrs(ctx, slog.LevelError, "invocation panicked", m.Attrs()...)
+				panic(r)
 
-			slog.LogAttrs(ctx, logLevel, "", m.Attrs()...)
+			case err != nil:
+				m.Faulted()
+				m.Any("error", err)
+				slog.LogAttrs(ctx, slog.LevelError, "invocation error", m.Attrs()...)
+
+			default:
+				slog.LogAttrs(ctx, slog.LevelInfo, "invocation done", m.Attrs()...)
+			}
 		}()
 
 		out, err = handler(ctx, in)
@@ -51,21 +51,21 @@ func Start[TIn any](handler func(context.Context, TIn) error, options ...lambda.
 		ctx, m := setUp(ctx)
 
 		defer func() {
-			var logLevel = slog.LevelInfo
-
-			if r := recover(); r != nil {
-				m.AddCounter("panicked", 1, "fault")
+			switch r := recover(); {
+			case r != nil:
+				m.Panicked()
 				m.Any("error", r)
-				logLevel = slog.LevelError
-			} else if err != nil {
-				m.AddCounter("fault", 1, "panicked")
-				m.Any("error", err)
-				logLevel = slog.LevelError
-			} else {
-				m.SetCounter("fault", 0, "panicked")
-			}
+				slog.LogAttrs(ctx, slog.LevelError, "invocation panicked", m.Attrs()...)
+				panic(r)
 
-			slog.LogAttrs(ctx, logLevel, "", m.Attrs()...)
+			case err != nil:
+				m.Faulted()
+				m.Any("error", err)
+				slog.LogAttrs(ctx, slog.LevelError, "invocation error", m.Attrs()...)
+
+			default:
+				slog.LogAttrs(ctx, slog.LevelInfo, "invocation done", m.Attrs()...)
+			}
 		}()
 
 		err = handler(ctx, in)
