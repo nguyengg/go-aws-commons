@@ -1,15 +1,26 @@
 package metrics
 
 import (
-	"log/slog"
+	"strconv"
 	"sync"
 	"time"
 )
 
-// Metrics contains metrics about a single request or operation that are to be logged with slog.
+// Metrics contains metrics about a single request or operation.
 //
 // Accessing the struct fields directly is not concurrency-safe. Use the various Set/Add methods if you need to modify
 // the instance from multiple goroutines. The zero-value instance is ready for use by those methods as well.
+//
+// The Metrics instance can be logged in several ways.
+//
+//	// this will log the metrics as top-level JSON fields.
+//	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stderr, nil)))
+//	slog.LogAttrs(context.Background(), slog.LevelInfo, "request done", m.Attrs()...)
+//
+//	// zerolog can also be used.
+//	m.Zerolog(zerolog.New(os.Stderr).Info().Timestamp()).Send()
+//
+//	// finally, the instance can also be marshalled as JSON.
 type Metrics struct {
 	// Start is the start time of the Metrics instance.
 	//
@@ -23,9 +34,12 @@ type Metrics struct {
 	// time.Now will be used when logging the Metrics instance.
 	End time.Time
 
-	properties map[string]slog.Value
-	counters   map[string]slog.Value
-	timings    map[string]TimingStats
+	// RawFormatting, if true, will not apply special formatting to Start, End, and latency metrics.
+	RawFormatting bool
+
+	properties map[string]property
+	counters   map[string]counter
+	timings    map[string]latencyStats
 
 	mu   sync.Mutex
 	once sync.Once
@@ -49,20 +63,21 @@ func NewWithStart(start time.Time) *Metrics {
 const (
 	// ReservedKeyStartTime is the top-level property for the start time.
 	//
-	// Formatted as epoch millisecond for machine parsing.
+	// Formatted as epoch millisecond for machine parsing; to use native formatter, use Metrics.RawFormatting.
 	ReservedKeyStartTime = "startTime"
 	// ReservedKeyEndTime is the top-level property for the end time.
 	//
-	// Formatted as http.TimeFormat for human readability.
+	// Formatted as http.TimeFormat for human readability; to use native formatter, use Metrics.RawFormatting.
 	ReservedKeyEndTime = "endTime"
 	// ReservedKeyLatency is the top-level property measuring duration between Metrics.Start and Metrics.End.
 	//
-	// If smaller than 1 second, the latency is formatted at millisecond unit (e.g. 153.25ms). Otherwise, it is
-	// formatted at second unit (e.g. 325.12s).
+	// Formatted using FormatDuration; to use native formatter, use Metrics.RawFormatting.
 	ReservedKeyLatency = "latency"
 	// ReservedKeyCounters is the top-level property containing int64-based and float64-based metrics.
 	ReservedKeyCounters = "counters"
-	// ReservedKeyTimings is the top-level property containing timing-based metrics (TimingStats).
+	// ReservedKeyTimings is the top-level property containing timing-based metrics.
+	//
+	// Formatted using FormatDuration; to use native formatter, use Metrics.RawFormatting.
 	ReservedKeyTimings = "timings"
 
 	// CounterKeyFault is a special counter metrics that indicates the request or operation ends with an error.
@@ -87,18 +102,18 @@ func (m *Metrics) init() {
 		}
 
 		if m.properties == nil {
-			m.properties = map[string]slog.Value{}
+			m.properties = map[string]property{}
 		}
 
 		if m.counters == nil {
-			m.counters = map[string]slog.Value{
-				CounterKeyFault:    slog.Int64Value(0),
-				CounterKeyPanicked: slog.Int64Value(0),
+			m.counters = map[string]counter{
+				CounterKeyFault:    {int64Kind, int64(0)},
+				CounterKeyPanicked: {int64Kind, int64(0)},
 			}
 		}
 
 		if m.timings == nil {
-			m.timings = map[string]TimingStats{}
+			m.timings = map[string]latencyStats{}
 		}
 	})
 }
@@ -119,15 +134,15 @@ func (m *Metrics) String(key, value string) *Metrics {
 		return m
 	}
 
-	m.properties[key] = slog.StringValue(value)
+	m.properties[key] = property{stringKind, value}
 
 	return m
 }
 
-// AnyValue is a variant of String that accepts slog.Value as the value.
+// Any is a variant of String that accepts any value instead.
 //
 // Returns self for chaining.
-func (m *Metrics) AnyValue(key string, value slog.Value) *Metrics {
+func (m *Metrics) Any(key string, value any) *Metrics {
 	m.init()
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -136,16 +151,9 @@ func (m *Metrics) AnyValue(key string, value slog.Value) *Metrics {
 		return m
 	}
 
-	m.properties[key] = value
+	m.properties[key] = property{anyKind, value}
 
 	return m
-}
-
-// Any is a variant of String that accepts any value wrapped as slog.AnyValue.
-//
-// Returns self for chaining.
-func (m *Metrics) Any(key string, value any) *Metrics {
-	return m.AnyValue(key, slog.AnyValue(value))
 }
 
 // SetCounter sets the Metrics.Counters mapping with the specified key to the given value.
@@ -159,11 +167,11 @@ func (m *Metrics) SetCounter(key string, value int64, ensureExist ...string) *Me
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.counters[key] = slog.Int64Value(value)
+	m.counters[key] = counter{int64Kind, value}
 
 	for _, k := range ensureExist {
 		if _, ok := m.counters[k]; !ok {
-			m.counters[k] = slog.Int64Value(0)
+			m.counters[k] = counter{int64Kind, int64(0)}
 		}
 	}
 
@@ -181,22 +189,15 @@ func (m *Metrics) AddCounter(key string, delta int64, ensureExist ...string) *Me
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if v, ok := m.counters[key]; ok {
-		switch k := v.Kind(); k {
-		case slog.KindInt64:
-			m.counters[key] = slog.Int64Value(v.Int64() + delta)
-		case slog.KindFloat64:
-			m.counters[key] = slog.Float64Value(v.Float64() + float64(delta))
-		default:
-			panic("unexpected counter type " + k.String())
-		}
+	if c, ok := m.counters[key]; ok {
+		c.addInt64(delta)
 	} else {
-		m.counters[key] = slog.Int64Value(delta)
+		m.counters[key] = counter{int64Kind, delta}
 	}
 
 	for _, k := range ensureExist {
 		if _, ok := m.counters[k]; !ok {
-			m.counters[k] = slog.Int64Value(0)
+			m.counters[k] = counter{int64Kind, int64(0)}
 		}
 	}
 
@@ -214,11 +215,11 @@ func (m *Metrics) SetFloater(key string, value float64, ensureExist ...string) *
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.counters[key] = slog.Float64Value(value)
+	m.counters[key] = counter{float64Kind, value}
 
 	for _, k := range ensureExist {
 		if _, ok := m.counters[k]; !ok {
-			m.counters[k] = slog.Float64Value(0)
+			m.counters[k] = counter{float64Kind, int64(0)}
 		}
 	}
 
@@ -236,22 +237,15 @@ func (m *Metrics) AddFloater(key string, delta float64, ensureExist ...string) *
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if v, ok := m.counters[key]; ok {
-		switch k := v.Kind(); k {
-		case slog.KindInt64:
-			m.counters[key] = slog.Float64Value(float64(v.Int64()) + delta)
-		case slog.KindFloat64:
-			m.counters[key] = slog.Float64Value(v.Float64() + delta)
-		default:
-			panic("unexpected counter type " + k.String())
-		}
+	if c, ok := m.counters[key]; ok {
+		c.addFloat64(delta)
 	} else {
-		m.counters[key] = slog.Float64Value(delta)
+		m.counters[key] = counter{float64Kind, delta}
 	}
 
 	for _, k := range ensureExist {
 		if _, ok := m.counters[k]; !ok {
-			m.counters[k] = slog.Int64Value(0)
+			m.counters[k] = counter{float64Kind, int64(0)}
 		}
 	}
 
@@ -262,26 +256,14 @@ func (m *Metrics) AddFloater(key string, delta float64, ensureExist ...string) *
 //
 // Returns self for chaining.
 func (m *Metrics) Faulted() *Metrics {
-	m.init()
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	m.counters[CounterKeyFault] = slog.Int64Value(m.counters[CounterKeyFault].Int64() + 1)
-
-	return m
+	return m.AddCounter(CounterKeyFault, 1)
 }
 
 // Panicked is a convenient method to increase the CounterKeyPanicked counter by 1.
 //
 // Returns self for chaining.
 func (m *Metrics) Panicked() *Metrics {
-	m.init()
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	m.counters[CounterKeyPanicked] = slog.Int64Value(m.counters[CounterKeyPanicked].Int64() + 1)
-
-	return m
+	return m.AddCounter(CounterKeyPanicked, 1)
 }
 
 // AddTiming adds the latency time.Duration to aggregated dataset.
@@ -295,56 +277,12 @@ func (m *Metrics) AddTiming(key string, latency time.Duration) *Metrics {
 	defer m.mu.Unlock()
 
 	if stats, ok := m.timings[key]; ok {
-		stats.Add(latency)
+		stats.add(latency)
 	} else {
-		m.timings[key] = NewTimingStats(latency)
+		m.timings[key] = newDurationStats(latency)
 	}
 
 	return m
-}
-
-// Attrs sets the Metrics.End (if not set) and returns the attributes to be logged with slog.
-func (m *Metrics) Attrs() (attrs []slog.Attr) {
-	m.init()
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if m.End.IsZero() {
-		m.End = time.Now()
-	}
-
-	attrs = []slog.Attr{
-		slog.Any(ReservedKeyStartTime, startTimeValue{m.Start}),
-		slog.Any(ReservedKeyEndTime, endTimeValue{m.End}),
-		slog.Any(ReservedKeyLatency, durationValue{m.End.Sub(m.Start)}),
-	}
-
-	if len(m.properties) != 0 {
-		for k, v := range m.properties {
-			attrs = append(attrs, slog.Any(k, v))
-		}
-	}
-
-	if len(m.counters) != 0 {
-		counterAttrs := make([]slog.Attr, 0, len(m.counters))
-		for k, v := range m.counters {
-			counterAttrs = append(counterAttrs, slog.Any(k, v))
-		}
-
-		attrs = append(attrs, slog.GroupAttrs(ReservedKeyCounters, counterAttrs...))
-	}
-
-	if len(m.timings) != 0 {
-		for k, v := range m.timings {
-			attrs = append(attrs, slog.Any(k, v))
-		}
-	}
-
-	return
-}
-
-func (m *Metrics) LogValue() slog.Value {
-	return slog.GroupValue(m.Attrs()...)
 }
 
 const (
@@ -356,3 +294,13 @@ const (
 	StatusCodeCommon = StatusCode2xx | StatusCode4xx | StatusCode5xx
 	StatusCodeAll    = StatusCode1xx | StatusCode2xx | StatusCode3xx | StatusCode4xx | StatusCode5xx
 )
+
+// FormatDuration formats the given time.Duration as seconds or milliseconds, truncating it to the next thousandth unit
+// (retaining at most 3 decimal points).
+func FormatDuration(d time.Duration) string {
+	if d >= 1*time.Second {
+		return strconv.FormatFloat(d.Truncate(time.Millisecond).Seconds(), 'f', -1, 64) + "s"
+	}
+
+	return strconv.FormatFloat(float64(d.Truncate(time.Microsecond))/float64(time.Millisecond), 'f', -1, 64) + "ms"
+}
