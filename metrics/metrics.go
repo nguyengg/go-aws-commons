@@ -139,6 +139,48 @@ func (m *Metrics) String(key, value string) *Metrics {
 	return m
 }
 
+// Int64 creates or modifies an int64 key-value property pair.
+//
+// Properties are top-level fields in the JSON log message. If the property is reserved, the method no-ops.
+//
+// If called multiples on the same key, the last one wins.
+//
+// Returns self for chaining.
+func (m *Metrics) Int64(key string, value int64) *Metrics {
+	m.init()
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if reservedKeys[key] {
+		return m
+	}
+
+	m.properties[key] = property{int64Kind, value}
+
+	return m
+}
+
+// Float64 creates or modifies a flaot64 key-value property pair.
+//
+// Properties are top-level fields in the JSON log message. If the property is reserved, the method no-ops.
+//
+// If called multiples on the same key, the last one wins.
+//
+// Returns self for chaining.
+func (m *Metrics) Float64(key string, value float64) *Metrics {
+	m.init()
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if reservedKeys[key] {
+		return m
+	}
+
+	m.properties[key] = property{float64Kind, value}
+
+	return m
+}
+
 // Any is a variant of String that accepts any value instead.
 //
 // Returns self for chaining.

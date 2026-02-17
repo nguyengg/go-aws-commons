@@ -76,6 +76,10 @@ func (p *property) e(key string, e *zerolog.Event) *zerolog.Event {
 	switch p.t {
 	case stringKind:
 		return e.Str(key, p.v.(string))
+	case int64Kind:
+		return e.Int64(key, p.v.(int64))
+	case float64Kind:
+		return e.Float64(key, p.v.(float64))
 	case anyKind:
 		return e.Any(key, p.v.(any))
 	default:

@@ -26,7 +26,7 @@ func (m *Metrics) MarshalJSON() ([]byte, error) {
 	}
 
 	for k, v := range m.properties {
-		res[k] = v
+		res[k] = v.v
 	}
 
 	if len(m.counters) != 0 {

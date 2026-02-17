@@ -80,6 +80,10 @@ func (p *property) attr(key string) slog.Attr {
 	switch p.t {
 	case stringKind:
 		return slog.String(key, p.v.(string))
+	case int64Kind:
+		return slog.Int64(key, p.v.(int64))
+	case float64Kind:
+		return slog.Float64(key, p.v.(float64))
 	case anyKind:
 		return slog.Any(key, p.v)
 	default:

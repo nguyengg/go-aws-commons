@@ -22,25 +22,10 @@ type property struct {
 	v any
 }
 
-func (p *property) setString(v string) {
-	p.t = stringKind
-	p.v = v
-}
-
-func (p *property) setAny(v any) {
-	p.t = anyKind
-	p.v = v
-}
-
 // counter is either int64 or float 64.
 type counter struct {
 	t kind
 	v any
-}
-
-func (c *counter) setInt64(v int64) {
-	c.t = int64Kind
-	c.v = v
 }
 
 func (c *counter) addInt64(v int64) {
@@ -53,11 +38,6 @@ func (c *counter) addInt64(v int64) {
 	default:
 		panic("invalid counter type")
 	}
-}
-
-func (c *counter) setFloat64(v float64) {
-	c.t = float64Kind
-	c.v = v
 }
 
 func (c *counter) addFloat64(v float64) {

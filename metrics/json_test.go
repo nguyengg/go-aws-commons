@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"net/http"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -11,8 +12,11 @@ import (
 func TestMetrics_MarshalJSON(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		m := New()
-		time.Sleep(3 * time.Second)
+		m.String("hello", "world")
+		m.Int64("status", http.StatusTeapot)
+		m.Float64("pi", 3.14)
 		m.AddCounter("userDidSomethingCool", 1)
+		time.Sleep(3 * time.Second) // to create latency metrics.
 
 		data, err := m.MarshalJSON()
 		assert.NoError(t, err)
@@ -24,9 +28,33 @@ func TestMetrics_MarshalJSON(t *testing.T) {
         "userDidSomethingCool": 1
     },
     "endTime": "Sat, 01 Jan 2000 00:00:03 UTC",
+    "hello": "world",
     "latency": "3s",
-    "startTime": 946684800000
+    "pi": 3.14,
+    "startTime": 946684800000,
+    "status": 418
 }`,
 			string(data))
+
+		m.RawFormatting = true
+
+		data, err = m.MarshalJSON()
+		assert.NoError(t, err)
+		assert.JSONEq(t,
+			`{
+    "counters": {
+        "fault": 0,
+        "panicked": 0,
+        "userDidSomethingCool": 1
+    },
+    "endTime": "1999-12-31T16:00:03-08:00",
+    "hello": "world",
+    "latency": "3s",
+    "pi": 3.14,
+    "startTime": "1999-12-31T16:00:00-08:00",
+    "status": 418
+}`,
+			string(data))
+
 	})
 }
