@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"log/slog"
 	"net/http"
 	"strings"
 	"unicode/utf8"
@@ -43,7 +42,7 @@ func StartBuffered(r *gin.Engine, options ...awslambda.Option) {
 		r.ServeHTTP(w, httpRequest)
 
 		res.StatusCode = w.statusCode
-		m.AnyValue("status", slog.IntValue(w.statusCode))
+		m.Int64("status", int64(w.statusCode))
 
 		// cookies and headers come from the same w.header.
 		res.Cookies = make([]string, 0)

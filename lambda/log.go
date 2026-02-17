@@ -30,7 +30,7 @@ const (
 )
 
 type jsonFormatter struct {
-	v interface{}
+	v any
 }
 
 func (j *jsonFormatter) Format(f fmt.State, verb rune) {
@@ -44,7 +44,7 @@ func (j *jsonFormatter) Format(f fmt.State, verb rune) {
 }
 
 type jsonIndentFormatter struct {
-	v              interface{}
+	v              any
 	prefix, indent string
 }
 
@@ -64,11 +64,11 @@ func (j jsonIndentFormatter) Format(f fmt.State, verb rune) {
 // Usage:
 //
 //	log.Printf("request=%s", JSON(v))
-func JSON(v interface{}) fmt.Formatter {
+func JSON(v any) fmt.Formatter {
 	return &jsonFormatter{v}
 }
 
 // JSONIdent is a variant of JSON that marshals with indentation.
-func JSONIdent(v interface{}, prefix, indent string) fmt.Formatter {
+func JSONIdent(v any, prefix, indent string) fmt.Formatter {
 	return &jsonIndentFormatter{v, prefix, indent}
 }

@@ -86,6 +86,6 @@ func (w *writer) Write(p []byte) (n int, _ error) {
 }
 
 func (w *writer) WriteHeader(statusCode int) {
-	w.AnyValue("status", slog.IntValue(statusCode))
+	w.Int64("status", int64(statusCode))
 	w.ResponseWriter.WriteHeader(statusCode)
 }
