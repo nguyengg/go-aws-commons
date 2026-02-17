@@ -1,7 +1,6 @@
 package metrics
 
 import (
-	"log"
 	"log/slog"
 	"sync"
 	"time"
@@ -292,15 +291,12 @@ func (m *Metrics) Attrs() (attrs []slog.Attr) {
 	}
 
 	if len(m.counters) != 0 {
-		log.Printf("some counters found")
 		counterAttrs := make([]slog.Attr, 0, len(m.counters))
 		for k, v := range m.counters {
 			counterAttrs = append(counterAttrs, slog.Any(k, v))
 		}
 
 		attrs = append(attrs, slog.GroupAttrs(ReservedKeyCounters, counterAttrs...))
-	} else {
-		log.Printf("no counters found")
 	}
 
 	if len(m.timings) != 0 {
