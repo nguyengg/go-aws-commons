@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"log/slog"
 	"net/http"
 	"strings"
 	"unicode/utf8"
 
 	"github.com/aws/aws-lambda-go/events"
 	awslambda "github.com/aws/aws-lambda-go/lambda"
-	"github.com/aws/aws-lambda-go/lambdacontext"
 	"github.com/gin-gonic/gin"
 	"github.com/nguyengg/go-aws-commons/lambda"
 	"github.com/nguyengg/go-aws-commons/metrics"
@@ -22,11 +22,7 @@ func StartBuffered(r *gin.Engine, options ...awslambda.Option) {
 
 	lambda.StartHandlerFunc(func(ctx context.Context, req events.LambdaFunctionURLRequest) (res events.LambdaFunctionURLResponse, err error) {
 		ctx = context.WithValue(ctx, &requestCtxKey{}, req)
-		m := metrics.Ctx(ctx)
-
-		if lc, ok := lambdacontext.FromContext(ctx); ok {
-			m.SetProperty("awsRequestID", lc.AwsRequestID)
-		}
+		m := metrics.Get(ctx)
 
 		httpRequest, err := toHTTPRequest(&req)
 		if err != nil {
@@ -47,7 +43,7 @@ func StartBuffered(r *gin.Engine, options ...awslambda.Option) {
 		r.ServeHTTP(w, httpRequest)
 
 		res.StatusCode = w.statusCode
-		m.SetStatusCode(w.statusCode)
+		m.AnyValue("status", slog.IntValue(w.statusCode))
 
 		// cookies and headers come from the same w.header.
 		res.Cookies = make([]string, 0)

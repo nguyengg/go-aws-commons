@@ -21,7 +21,7 @@ import (
 //	}
 //
 // If the error type is gin.ErrorTypeBind or gin.ErrorTypePublic, its message will be returned as the "message" field.
-// Any other error types will be hidden with a default message retrieved from http.StatusText.
+// AnyValue other error types will be hidden with a default message retrieved from http.StatusText.
 func JSONErrorHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Next()
