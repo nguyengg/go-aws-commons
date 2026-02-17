@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// Metrics contains metrics about a single request that are to be logged with slog.
+// Metrics contains metrics about a single request or operation that are to be logged with slog.
 //
 // Accessing the struct fields directly is not concurrency-safe. Use the various Set/Add methods if you need to modify
 // the instance from multiple goroutines. The zero-value instance is ready for use by those methods as well.
@@ -64,6 +64,12 @@ const (
 	ReservedKeyCounters = "counters"
 	// ReservedKeyTimings is the top-level property containing timing-based metrics (TimingStats).
 	ReservedKeyTimings = "timings"
+
+	// CounterKeyFault is a special counter metrics that indicates the request or operation ends with an error.
+	CounterKeyFault = "fault"
+	// CounterKeyPanicked is a special counter metrics that indicates handling the request or operation ends with a
+	// panic which was recovered.
+	CounterKeyPanicked = "panicked"
 )
 
 var reservedKeys = map[string]bool{
@@ -81,15 +87,18 @@ func (m *Metrics) init() {
 		}
 
 		if m.properties == nil {
-			m.properties = make(map[string]slog.Value)
+			m.properties = map[string]slog.Value{}
 		}
 
 		if m.counters == nil {
-			m.counters = make(map[string]slog.Value)
+			m.counters = map[string]slog.Value{
+				CounterKeyFault:    slog.Int64Value(0),
+				CounterKeyPanicked: slog.Int64Value(0),
+			}
 		}
 
 		if m.timings == nil {
-			m.timings = make(map[string]TimingStats)
+			m.timings = map[string]TimingStats{}
 		}
 	})
 }
@@ -245,6 +254,32 @@ func (m *Metrics) AddFloater(key string, delta float64, ensureExist ...string) *
 			m.counters[k] = slog.Int64Value(0)
 		}
 	}
+
+	return m
+}
+
+// Faulted is a convenient method to increase the CounterKeyFault counter by 1.
+//
+// Returns self for chaining.
+func (m *Metrics) Faulted() *Metrics {
+	m.init()
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.counters[CounterKeyFault] = slog.Int64Value(m.counters[CounterKeyFault].Int64() + 1)
+
+	return m
+}
+
+// Panicked is a convenient method to increase the CounterKeyPanicked counter by 1.
+//
+// Returns self for chaining.
+func (m *Metrics) Panicked() *Metrics {
+	m.init()
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.counters[CounterKeyPanicked] = slog.Int64Value(m.counters[CounterKeyPanicked].Int64() + 1)
 
 	return m
 }
