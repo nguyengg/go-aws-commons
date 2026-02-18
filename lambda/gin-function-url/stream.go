@@ -40,8 +40,7 @@ type handler struct {
 }
 
 func (h handler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	m := metrics.New()
-	ctx := metrics.WithContext(req.Context(), m)
+	ctx, m := metrics.NewWithContext(req.Context())
 
 	if lc, ok := lambdacontext.FromContext(ctx); ok {
 		log.SetPrefix(lc.AwsRequestID + " ")
@@ -52,21 +51,17 @@ func (h handler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	w := &writer{rw, m, nil}
 
 	defer func() {
-		var logLevel = slog.LevelInfo
-
 		if r := recover(); r != nil {
 			m.AddCounter("panicked", 1, "fault")
 			m.Any("error", r)
-			logLevel = slog.LevelError
 		} else if w.err != nil {
 			m.AddCounter("fault", 1, "panicked")
 			m.Any("error", w.err)
-			logLevel = slog.LevelError
 		} else {
 			m.SetCounter("fault", 0, "panicked")
 		}
 
-		slog.LogAttrs(ctx, logLevel, "", m.Attrs()...)
+		_ = m.CloseContext(ctx)
 	}()
 
 	h.r.ServeHTTP(w, req.WithContext(ctx))
