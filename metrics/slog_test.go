@@ -2,7 +2,6 @@ package metrics
 
 import (
 	"bytes"
-	"context"
 	"log/slog"
 	"net/http"
 	"testing"
@@ -12,24 +11,24 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestMetrics_Attrs(t *testing.T) {
+func TestMetrics_slog(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		m := New()
+		var buf bytes.Buffer
+		slog.SetDefault(slog.New(slog.NewJSONHandler(&buf, nil)))
+
+		m := New(LogWithSlog())
 		m.String("hello", "world")
 		m.Int64("status", http.StatusTeapot)
 		m.Float64("pi", 3.14)
 		m.AddCounter("userDidSomethingCool", 1)
 		time.Sleep(3 * time.Second) // to create latency metrics.
 
-		var buf bytes.Buffer
-		slog.SetDefault(slog.New(slog.NewJSONHandler(&buf, nil)))
-		slog.LogAttrs(context.Background(), slog.LevelInfo, "request done", m.Attrs()...)
-
+		assert.NoError(t, m.Close())
 		assert.JSONEq(t,
 			`{
     "time": "1999-12-31T16:00:03-08:00",
     "level": "INFO",
-    "msg": "request done",
+    "msg": "",
     "startTime": 946684800000,
     "endTime": "Sat, 01 Jan 2000 00:00:03 UTC",
     "latency": "3s",
@@ -43,16 +42,29 @@ func TestMetrics_Attrs(t *testing.T) {
     }
 }`,
 			buf.String())
+	})
+}
 
-		buf.Reset()
+func TestMetrics_slogWithGroup(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		var buf bytes.Buffer
+		slog.SetDefault(slog.New(slog.NewJSONHandler(&buf, nil)))
 
-		slog.LogAttrs(context.Background(), slog.LevelInfo, "request done", slog.Any("metrics", m))
+		m := New(LogWithSlog(func(opts *SlogOptions) {
+			opts.Group = "metrics"
+		}))
+		m.String("hello", "world")
+		m.Int64("status", http.StatusTeapot)
+		m.Float64("pi", 3.14)
+		m.AddCounter("userDidSomethingCool", 1)
+		time.Sleep(3 * time.Second) // to create latency metrics.
 
+		assert.NoError(t, m.Close())
 		assert.JSONEq(t,
 			`{
     "time": "1999-12-31T16:00:03-08:00",
     "level": "INFO",
-    "msg": "request done",
+    "msg": "",
     "metrics": {
         "startTime": 946684800000,
         "endTime": "Sat, 01 Jan 2000 00:00:03 UTC",
@@ -69,29 +81,39 @@ func TestMetrics_Attrs(t *testing.T) {
 }`,
 			buf.String())
 
-		buf.Reset()
+	})
+}
 
-		m.RawFormatting = true
+func TestMetrics_slogNoCustomFormatter(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		var buf bytes.Buffer
+		slog.SetDefault(slog.New(slog.NewJSONHandler(&buf, nil)))
 
-		slog.LogAttrs(context.Background(), slog.LevelInfo, "request done", slog.Any("metrics", m))
+		m := New(LogWithSlog(func(opts *SlogOptions) {
+			opts.NoCustomFormatter = true
+		}))
+		m.String("hello", "world")
+		m.Int64("status", http.StatusTeapot)
+		m.Float64("pi", 3.14)
+		m.AddCounter("userDidSomethingCool", 1)
+		time.Sleep(3 * time.Second) // to create latency metrics.
 
+		assert.NoError(t, m.Close())
 		assert.JSONEq(t,
 			`{
     "time": "1999-12-31T16:00:03-08:00",
     "level": "INFO",
-    "msg": "request done",
-    "metrics": {
-        "startTime": "1999-12-31T16:00:00-08:00",
-        "endTime": "1999-12-31T16:00:03-08:00",
-        "latency": 3000000000,
-        "hello": "world",
-        "status": 418,
-        "pi": 3.14,
-        "counters": {
-            "fault": 0,
-            "panicked": 0,
-            "userDidSomethingCool": 1
-        }
+    "msg": "",
+    "startTime": "1999-12-31T16:00:00-08:00",
+    "endTime": "1999-12-31T16:00:03-08:00",
+    "latency": 3000000000,
+    "hello": "world",
+    "status": 418,
+    "pi": 3.14,
+    "counters": {
+        "fault": 0,
+        "panicked": 0,
+        "userDidSomethingCool": 1
     }
 }`,
 			buf.String())

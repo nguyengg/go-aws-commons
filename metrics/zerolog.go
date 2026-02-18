@@ -6,19 +6,30 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// Log set the Metrics.End (if not set) and adds fields to the given zerolog.Event.
+// LogWithZerolog will change Close to log with zerolog instead.
 //
-// Returns the same event for chaining.
-func (m *Metrics) Log(e *zerolog.Event) *zerolog.Event {
+// See ZerologOptions for more options.
+func LogWithZerolog(optFns ...func(opts *ZerologOptions)) func(*Metrics) {
+	opts := &ZerologOptions{}
+
+	for _, fn := range optFns {
+		fn(opts)
+	}
+
+	return func(m *Metrics) {
+		m.logger = opts
+	}
+}
+
+// e set the Metrics.End (if not set) and adds fields to the given zerolog.Event.
+func (m *Metrics) e(e *zerolog.Event, noCustomerFormatter bool) *zerolog.Event {
 	m.init()
-	m.mu.Lock()
-	defer m.mu.Unlock()
 
 	if m.End.IsZero() {
 		m.End = time.Now()
 	}
 
-	if m.RawFormatting {
+	if noCustomerFormatter {
 		e.
 			Time(ReservedKeyStartTime, m.Start).
 			Time(ReservedKeyEndTime, m.End).
@@ -46,7 +57,7 @@ func (m *Metrics) Log(e *zerolog.Event) *zerolog.Event {
 	if len(m.timings) != 0 {
 		d := zerolog.Dict()
 
-		if m.RawFormatting {
+		if noCustomerFormatter {
 			for k, t := range m.timings {
 				d.Dict(k, zerolog.Dict().
 					Dur("sum", t.sum).

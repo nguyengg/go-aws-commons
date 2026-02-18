@@ -5,17 +5,29 @@ import (
 	"time"
 )
 
-// Attrs sets the Metrics.End (if not set) and returns the attributes to be logged with slog.
-func (m *Metrics) Attrs() (attrs []slog.Attr) {
+// LogWithSlog changes Metrics.Close to use slog.
+//
+// See SlogOptions for more options.
+func LogWithSlog(optFns ...func(opts *SlogOptions)) func(*Metrics) {
+	opts := &SlogOptions{}
+
+	for _, fn := range optFns {
+		fn(opts)
+	}
+
+	return func(m *Metrics) {
+		m.logger = opts
+	}
+}
+
+func (m *Metrics) attrs(noCustomFormatter bool) (attrs []slog.Attr) {
 	m.init()
-	m.mu.Lock()
-	defer m.mu.Unlock()
 
 	if m.End.IsZero() {
 		m.End = time.Now()
 	}
 
-	if m.RawFormatting {
+	if noCustomFormatter {
 		attrs = []slog.Attr{
 			slog.Time(ReservedKeyStartTime, m.Start),
 			slog.Time(ReservedKeyEndTime, m.End),
@@ -44,7 +56,8 @@ func (m *Metrics) Attrs() (attrs []slog.Attr) {
 
 	if len(m.timings) != 0 {
 		timingAttrs := make([]slog.Attr, 0, len(m.timings))
-		if m.RawFormatting {
+
+		if noCustomFormatter {
 			for k, t := range m.timings {
 				timingAttrs = append(timingAttrs, slog.GroupAttrs(k,
 					slog.Duration("sum", t.sum),
@@ -73,7 +86,7 @@ func (m *Metrics) Attrs() (attrs []slog.Attr) {
 }
 
 func (m *Metrics) LogValue() slog.Value {
-	return slog.GroupValue(m.Attrs()...)
+	return slog.GroupValue(m.attrs(true)...)
 }
 
 func (p *property) attr(key string) slog.Attr {

@@ -35,26 +35,5 @@ func TestMetrics_MarshalJSON(t *testing.T) {
     "status": 418
 }`,
 			string(data))
-
-		m.RawFormatting = true
-
-		data, err = m.MarshalJSON()
-		assert.NoError(t, err)
-		assert.JSONEq(t,
-			`{
-    "counters": {
-        "fault": 0,
-        "panicked": 0,
-        "userDidSomethingCool": 1
-    },
-    "endTime": "1999-12-31T16:00:03-08:00",
-    "hello": "world",
-    "latency": "3s",
-    "pi": 3.14,
-    "startTime": "1999-12-31T16:00:00-08:00",
-    "status": 418
-}`,
-			string(data))
-
 	})
 }

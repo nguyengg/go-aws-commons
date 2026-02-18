@@ -11,6 +11,18 @@ func WithContext(ctx context.Context, m *Metrics) context.Context {
 	return context.WithValue(ctx, metricsKey{}, m)
 }
 
+// NewWithContext combines both New and WithContext in one call.
+func NewWithContext(ctx context.Context, optFns ...func(m *Metrics)) (context.Context, *Metrics) {
+	m := &Metrics{}
+	m.init()
+
+	for _, fn := range optFns {
+		fn(m)
+	}
+
+	return context.WithValue(ctx, metricsKey{}, m), m
+}
+
 // Get returns the Metrics instance from the specified context if available.
 //
 // If the context doesn't contain an instance, a new one will be created.

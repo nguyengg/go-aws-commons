@@ -57,30 +57,30 @@ func AddClientSideMetrics(cfg *aws.Config) {
 // GetObject one DynamoDB Query call were made using the same Metrics instance, it will be populated with counters like
 // this:
 //
-//		"counters": {
-//	        "S3.GetObject.ClientFault": 0,
-//	        "S3.GetObject.ServerFault": 0,
-//	        "S3.GetObject.UnknownFault": 0,
-//	        "DynamoDB.Query.ClientFault": 0,
-//	        "DynamoDB.Query.ServerFault": 0,
-//	        "DynamoDB.Query.UnknownFault": 0,
+//	"counters": {
+//	    "S3.GetObject.ClientFault": 0,
+//	    "S3.GetObject.ServerFault": 0,
+//	    "S3.GetObject.UnknownFault": 0,
+//	    "DynamoDB.Query.ClientFault": 0,
+//	    "DynamoDB.Query.ServerFault": 0,
+//	    "DynamoDB.Query.UnknownFault": 0,
+//	},
+//	"timings": {
+//	    "S3.GetObject": {
+//	        "sum": "64.680ms",
+//	        "min": "64.680ms",
+//	        "max": "64.680ms",
+//	        "n": 1,
+//	        "avg": "64.680ms"
 //	    },
-//	    "timings": {
-//	        "S3.GetObject": {
-//	            "sum": "64.680ms",
-//	            "min": "64.680ms",
-//	            "max": "64.680ms",
-//	            "n": 1,
-//	            "avg": "64.680ms"
-//	        },
-//	        "DynamoDB.Query": {
-//	            "sum": "74.255ms",
-//	            "min": "74.255ms",
-//	            "max": "74.255ms",
-//	            "n": 1,
-//	            "avg": "74.255ms"
-//	        }
+//	    "DynamoDB.Query": {
+//	        "sum": "74.255ms",
+//	        "min": "74.255ms",
+//	        "max": "74.255ms",
+//	        "n": 1,
+//	        "avg": "74.255ms"
 //	    }
+//	}
 //
 // Note that the middleware does not do any logging on its own; it only populates the Metrics instance attached to
 // the context passed into the AWS calls.

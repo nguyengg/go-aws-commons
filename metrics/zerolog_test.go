@@ -11,25 +11,24 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestMetrics_Log(t *testing.T) {
+func TestMetrics_zerolog(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		m := New()
+		var buf bytes.Buffer
+		logger := zerolog.New(&buf)
+		zerolog.DefaultContextLogger = &logger
+
+		m := New(LogWithZerolog())
 		m.String("hello", "world")
 		m.Int64("status", http.StatusTeapot)
 		m.Float64("pi", 3.14)
 		m.AddCounter("userDidSomethingCool", 1)
 		time.Sleep(3 * time.Second) // to create latency metrics.
 
-		var buf bytes.Buffer
-		logger := zerolog.New(&buf)
-
-		m.Log(logger.Info().Timestamp()).Send()
-
+		assert.NoError(t, m.Close())
 		assert.JSONEq(
 			t,
 			`{
     "level": "info",
-    "time": "1999-12-31T16:00:03-08:00",
     "startTime": 946684800000,
     "endTime": "Sat, 01 Jan 2000 00:00:03 UTC",
     "latency": "3s",
@@ -43,18 +42,67 @@ func TestMetrics_Log(t *testing.T) {
     }
 }`,
 			buf.String())
+	})
+}
 
-		buf.Reset()
+func TestMetrics_zerologWithDict(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		var buf bytes.Buffer
+		logger := zerolog.New(&buf)
+		zerolog.DefaultContextLogger = &logger
 
-		m.RawFormatting = true
+		m := New(LogWithZerolog(func(opts *ZerologOptions) {
+			opts.Dict = "metrics"
+		}))
+		m.String("hello", "world")
+		m.Int64("status", http.StatusTeapot)
+		m.Float64("pi", 3.14)
+		m.AddCounter("userDidSomethingCool", 1)
+		time.Sleep(3 * time.Second) // to create latency metrics.
 
-		m.Log(logger.Info().Timestamp()).Send()
-
+		assert.NoError(t, m.Close())
 		assert.JSONEq(
 			t,
 			`{
     "level": "info",
-    "time": "1999-12-31T16:00:03-08:00",
+    "metrics": {
+        "startTime": 946684800000,
+        "endTime": "Sat, 01 Jan 2000 00:00:03 UTC",
+        "latency": "3s",
+        "status": 418,
+        "pi": 3.14,
+        "hello": "world",
+        "counters": {
+            "fault": 0,
+            "panicked": 0,
+            "userDidSomethingCool": 1
+        }
+    }
+}`,
+			buf.String())
+	})
+}
+
+func TestMetrics_zerologNoCustomFormatter(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		var buf bytes.Buffer
+		logger := zerolog.New(&buf)
+		zerolog.DefaultContextLogger = &logger
+
+		m := New(LogWithZerolog(func(opts *ZerologOptions) {
+			opts.NoCustomFormatter = true
+		}))
+		m.String("hello", "world")
+		m.Int64("status", http.StatusTeapot)
+		m.Float64("pi", 3.14)
+		m.AddCounter("userDidSomethingCool", 1)
+		time.Sleep(3 * time.Second) // to create latency metrics.
+
+		assert.NoError(t, m.Close())
+		assert.JSONEq(
+			t,
+			`{
+    "level": "info",
     "startTime": "1999-12-31T16:00:00-08:00",
     "endTime": "1999-12-31T16:00:03-08:00",
     "latency": 3000,

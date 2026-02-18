@@ -52,6 +52,17 @@ func (c *counter) addFloat64(v float64) {
 	}
 }
 
+func (c *counter) isPositive() bool {
+	switch c.t {
+	case int64Kind:
+		return c.v.(int64) > 0
+	case float64Kind:
+		return c.v.(float64) > 0
+	default:
+		panic("invalid counter type")
+	}
+}
+
 // latencyStats aggregates one or more time.Duration metrics.
 type latencyStats struct {
 	sum time.Duration

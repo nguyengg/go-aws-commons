@@ -7,22 +7,15 @@ import (
 
 func (m *Metrics) MarshalJSON() ([]byte, error) {
 	m.init()
-	m.mu.Lock()
-	defer m.mu.Unlock()
 
 	if m.End.IsZero() {
 		m.End = time.Now()
 	}
 
-	res := map[string]any{}
-	if m.RawFormatting {
-		res["startTime"] = m.Start
-		res["endTime"] = m.End
-		res["latency"] = m.End.Sub(m.Start).String()
-	} else {
-		res["startTime"] = m.Start.UnixMilli()
-		res["endTime"] = m.End.UTC().Format(time.RFC1123)
-		res["latency"] = FormatDuration(m.End.Sub(m.Start))
+	res := map[string]any{
+		"startTime": m.Start.UnixMilli(),
+		"endTime":   m.End.UTC().Format(time.RFC1123),
+		"latency":   FormatDuration(m.End.Sub(m.Start)),
 	}
 
 	for k, v := range m.properties {
@@ -42,23 +35,12 @@ func (m *Metrics) MarshalJSON() ([]byte, error) {
 	if len(m.timings) != 0 {
 		timings := map[string]any{}
 
-		if m.RawFormatting {
-			for k, t := range m.timings {
-				timings[k] = map[string]any{
-					"sum": t.sum.String(),
-					"min": t.min.String(),
-					"max": t.max.String(),
-					"n":   t.n,
-				}
-			}
-		} else {
-			for k, t := range m.timings {
-				timings[k] = map[string]any{
-					"sum": FormatDuration(t.sum),
-					"min": FormatDuration(t.min),
-					"max": FormatDuration(t.max),
-					"n":   t.n,
-				}
+		for k, t := range m.timings {
+			timings[k] = map[string]any{
+				"sum": FormatDuration(t.sum),
+				"min": FormatDuration(t.min),
+				"max": FormatDuration(t.max),
+				"n":   t.n,
 			}
 		}
 

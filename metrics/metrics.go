@@ -1,6 +1,9 @@
 package metrics
 
 import (
+	"context"
+	"io"
+	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -8,19 +11,16 @@ import (
 
 // Metrics contains metrics about a single request or operation.
 //
-// Accessing the struct fields directly is not concurrency-safe. Use the various Set/Add methods if you need to modify
-// the instance from multiple goroutines. The zero-value instance is ready for use by those methods as well.
+// Unlike structured logging which may emit several messages with the same key-value pairs, Metrics instances should be
+// logged only once by way of Close, after a request or operation has finished. For example, a Metrics instance may
+// measure a GET request from start to end time, capturing whether the response's status is a 2xx or 5xx, etc. A Metrics
+// instance may also measure processing a long-running task such as handling SQS messages, etc.
 //
-// The Metrics instance can be logged in several ways.
+// The zero-value instance is ready for use as well; the first call to modify the Metrics instance will set Start to
+// time.Now if Start is zero value. Metrics is not safe for concurrent use.
 //
-//	// this will log the metrics as top-level JSON fields.
-//	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stderr, nil)))
-//	slog.LogAttrs(context.Background(), slog.LevelInfo, "request done", m.Attrs()...)
-//
-//	// zerolog can also be used.
-//	m.Zerolog(zerolog.New(os.Stderr).Info().Timestamp()).Send()
-//
-//	// finally, the instance can also be marshalled as JSON.
+// The Metrics instance can be logged in several ways. By default, Close will write a JSON entry to os.Stderr. To log
+// with slog or zerolog, pass LogWithSlog or LogWithZerolog accordingly.
 type Metrics struct {
 	// Start is the start time of the Metrics instance.
 	//
@@ -34,29 +34,60 @@ type Metrics struct {
 	// time.Now will be used when logging the Metrics instance.
 	End time.Time
 
-	// RawFormatting, if true, will not apply special formatting to Start, End, and latency metrics.
-	RawFormatting bool
-
 	properties map[string]property
 	counters   map[string]counter
 	timings    map[string]latencyStats
 
-	mu   sync.Mutex
-	once sync.Once
+	logger metricsLogger
+	once   sync.Once
 }
 
 // New creates a new Metrics instance with Metrics.Start set to time.Now and all struct fields populated.
-func New() *Metrics {
+//
+// By default, a single JSON entry is logged to os.Stderr. To change this, specify the appropriate optFns such as
+// LogJSON, LogWithSlog, LogWithZerolog.
+func New(optFns ...func(m *Metrics)) *Metrics {
 	m := &Metrics{}
 	m.init()
+
+	for _, fn := range optFns {
+		fn(m)
+	}
+
 	return m
 }
 
-// NewWithStart is a variant of New with the specified Metrics.Start.
-func NewWithStart(start time.Time) *Metrics {
-	m := &Metrics{Start: start}
+// LogJSON modifies the Metrics instance to log JSON content to the given writer.
+func LogJSON(w io.Writer) func(*Metrics) {
+	return func(m *Metrics) {
+		m.logger = &jsonLogger{w}
+	}
+}
+
+// Close will log the Metrics instance to the channel specified at init.
+//
+// If End is zero value, End will be set to time.Now.
+func (m *Metrics) Close() error {
 	m.init()
-	return m
+
+	if m.End.IsZero() {
+		m.End = time.Now()
+	}
+
+	return m.logger.Log(context.Background(), m)
+}
+
+// CloseContext is a variant of Close that accepts a context.
+//
+// Useful if using slog or zerolog that can retrieve a logger from context.
+func (m *Metrics) CloseContext(ctx context.Context) error {
+	m.init()
+
+	if m.End.IsZero() {
+		m.End = time.Now()
+	}
+
+	return m.logger.Log(ctx, m)
 }
 
 // Reserved property keys.
@@ -115,6 +146,10 @@ func (m *Metrics) init() {
 		if m.timings == nil {
 			m.timings = map[string]latencyStats{}
 		}
+
+		if m.logger == nil {
+			m.logger = &jsonLogger{os.Stderr}
+		}
 	})
 }
 
@@ -127,8 +162,6 @@ func (m *Metrics) init() {
 // Returns self for chaining.
 func (m *Metrics) String(key, value string) *Metrics {
 	m.init()
-	m.mu.Lock()
-	defer m.mu.Unlock()
 
 	if reservedKeys[key] {
 		return m
@@ -148,8 +181,6 @@ func (m *Metrics) String(key, value string) *Metrics {
 // Returns self for chaining.
 func (m *Metrics) Int64(key string, value int64) *Metrics {
 	m.init()
-	m.mu.Lock()
-	defer m.mu.Unlock()
 
 	if reservedKeys[key] {
 		return m
@@ -169,8 +200,6 @@ func (m *Metrics) Int64(key string, value int64) *Metrics {
 // Returns self for chaining.
 func (m *Metrics) Float64(key string, value float64) *Metrics {
 	m.init()
-	m.mu.Lock()
-	defer m.mu.Unlock()
 
 	if reservedKeys[key] {
 		return m
@@ -186,8 +215,6 @@ func (m *Metrics) Float64(key string, value float64) *Metrics {
 // Returns self for chaining.
 func (m *Metrics) Any(key string, value any) *Metrics {
 	m.init()
-	m.mu.Lock()
-	defer m.mu.Unlock()
 
 	if reservedKeys[key] {
 		return m
@@ -206,8 +233,6 @@ func (m *Metrics) Any(key string, value any) *Metrics {
 // Returns self for chaining.
 func (m *Metrics) SetCounter(key string, value int64, ensureExist ...string) *Metrics {
 	m.init()
-	m.mu.Lock()
-	defer m.mu.Unlock()
 
 	m.counters[key] = counter{int64Kind, value}
 
@@ -228,8 +253,6 @@ func (m *Metrics) SetCounter(key string, value int64, ensureExist ...string) *Me
 // Returns self for chaining.
 func (m *Metrics) AddCounter(key string, delta int64, ensureExist ...string) *Metrics {
 	m.init()
-	m.mu.Lock()
-	defer m.mu.Unlock()
 
 	if c, ok := m.counters[key]; ok {
 		c.addInt64(delta)
@@ -254,8 +277,6 @@ func (m *Metrics) AddCounter(key string, delta int64, ensureExist ...string) *Me
 // Returns self for chaining.
 func (m *Metrics) SetFloater(key string, value float64, ensureExist ...string) *Metrics {
 	m.init()
-	m.mu.Lock()
-	defer m.mu.Unlock()
 
 	m.counters[key] = counter{float64Kind, value}
 
@@ -276,8 +297,6 @@ func (m *Metrics) SetFloater(key string, value float64, ensureExist ...string) *
 // Returns self for chaining.
 func (m *Metrics) AddFloater(key string, delta float64, ensureExist ...string) *Metrics {
 	m.init()
-	m.mu.Lock()
-	defer m.mu.Unlock()
 
 	if c, ok := m.counters[key]; ok {
 		c.addFloat64(delta)
@@ -315,8 +334,6 @@ func (m *Metrics) Panicked() *Metrics {
 // Returns self for chaining.
 func (m *Metrics) AddTiming(key string, latency time.Duration) *Metrics {
 	m.init()
-	m.mu.Lock()
-	defer m.mu.Unlock()
 
 	if stats, ok := m.timings[key]; ok {
 		stats.add(latency)
