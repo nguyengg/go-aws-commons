@@ -344,16 +344,6 @@ func (m *Metrics) AddTiming(key string, latency time.Duration) *Metrics {
 	return m
 }
 
-const (
-	StatusCode1xx = 1 << iota
-	StatusCode2xx
-	StatusCode3xx
-	StatusCode4xx
-	StatusCode5xx
-	StatusCodeCommon = StatusCode2xx | StatusCode4xx | StatusCode5xx
-	StatusCodeAll    = StatusCode1xx | StatusCode2xx | StatusCode3xx | StatusCode4xx | StatusCode5xx
-)
-
 // FormatDuration formats the given time.Duration as seconds or milliseconds, truncating it to the next thousandth unit
 // (retaining at most 3 decimal points).
 func FormatDuration(d time.Duration) string {
