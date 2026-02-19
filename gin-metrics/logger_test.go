@@ -1,4 +1,4 @@
-package metrics
+package ginmetrics
 
 import (
 	"bytes"
@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	commonsmetrics "github.com/nguyengg/go-aws-commons/metrics"
+	"github.com/nguyengg/go-aws-commons/metrics"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -24,8 +24,8 @@ func TestLogger(t *testing.T) {
 		logger := slog.New(slog.NewJSONHandler(&lbuf, nil))
 
 		r := gin.New()
-		r.Use(Logger(WithRequestId(), WithRecovery(), WithCustomMetrics(func(c *gin.Context) *commonsmetrics.Metrics {
-			return commonsmetrics.New(commonsmetrics.LogJSON(&mbuf))
+		r.Use(Logger(WithRequestId(), WithRecovery(), WithCustomMetrics(func(c *gin.Context) *metrics.Metrics {
+			return metrics.New(metrics.LogJSON(&mbuf))
 		}), func(cfg *LoggerConfig) {
 			cfg.Parent = logger
 			cfg.requestId = func() string {
@@ -33,7 +33,8 @@ func TestLogger(t *testing.T) {
 			}
 		}))
 		r.GET("/ping", func(c *gin.Context) {
-			m := commonsmetrics.Get(c)
+			// m := metrics.Get(c) // this is wrong.
+			m := Get(c)
 			m.AddCounter("userDidSomethingCool", 1)
 
 			time.Sleep(3 * time.Second) // for latency.
@@ -50,7 +51,7 @@ func TestLogger(t *testing.T) {
 		assert.Equal(t, 418, w.Code)
 		assert.Equal(t, "I'm a teapot my-request-id", w.Body.String())
 		assert.JSONEq(t, `{
-  "counters": { "fault": 0, "panicked": 0 },
+  "counters": { "fault": 0, "panicked": 0, "userDidSomethingCool": 1 },
   "endTime": "Sat, 01 Jan 2000 00:00:03 UTC",
   "ip": "",
   "latency": "3s",

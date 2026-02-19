@@ -1,4 +1,4 @@
-package metrics
+package ginmetrics
 
 import (
 	"context"
@@ -6,10 +6,12 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	commonsmetrics "github.com/nguyengg/go-aws-commons/metrics"
+	"github.com/nguyengg/go-aws-commons/metrics"
 )
 
 // Logger is a replacement for gin.Logger that uses metrics.Metrics instead.
+//
+// You must use Get to retrieve the metrics.Metrics instance from a gin.Context.
 func Logger(options ...func(cfg *LoggerConfig)) gin.HandlerFunc {
 	cfg := &LoggerConfig{}
 	for _, optFn := range options {
@@ -19,17 +21,15 @@ func Logger(options ...func(cfg *LoggerConfig)) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var (
 			ctx = c.Request.Context()
-			m   *commonsmetrics.Metrics
+			m   *metrics.Metrics
 		)
 
-		if newFn := cfg.newFn; newFn == nil {
-			ctx, m = commonsmetrics.NewWithContext(ctx, cfg.optFns...)
+		if newFn := cfg.newMetrics; newFn == nil {
+			ctx, m = metrics.NewWithContext(ctx)
+			c.Request = c.Request.WithContext(ctx)
 		} else {
 			m = newFn(c)
-			for _, fn := range cfg.optFns {
-				fn(m)
-			}
-			ctx = commonsmetrics.WithContext(ctx, m)
+			c.Request = c.Request.WithContext(metrics.WithContext(ctx, m))
 		}
 
 		var logger = cfg.Parent
@@ -76,7 +76,6 @@ func Logger(options ...func(cfg *LoggerConfig)) gin.HandlerFunc {
 			_ = m.CloseContext(c)
 		}()
 
-		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	}
 }
@@ -93,10 +92,9 @@ type LoggerConfig struct {
 	// If nil, slog.Default will be used. The child loggers can be retrieved with Slog.
 	Parent *slog.Logger
 
-	newFn     func(c *gin.Context) *commonsmetrics.Metrics
-	optFns    []func(m *commonsmetrics.Metrics)
-	requestId func() string
-	recovery  bool
+	newMetrics func(c *gin.Context) *metrics.Metrics
+	requestId  func() string
+	recovery   bool
 }
 
 // SkipPath is a convenient method to replace LoggerConfig.Skip with one that will skip logging for any request to the
@@ -119,8 +117,13 @@ func SkipPath(paths ...string) func(cfg *LoggerConfig) {
 //
 // Useful if you need to populate the metrics.Metrics instance with additional properties, or you want to change how
 // the metrics.Metrics instance is logged.
-func WithCustomMetrics(fn func(c *gin.Context) *commonsmetrics.Metrics) func(cfg *LoggerConfig) {
+func WithCustomMetrics(fn func(c *gin.Context) *metrics.Metrics) func(cfg *LoggerConfig) {
 	return func(cfg *LoggerConfig) {
-		cfg.newFn = fn
+		cfg.newMetrics = fn
 	}
+}
+
+// Get correctly retrieves the metrics.Metrics instance from the underlying request's context.
+func Get(c *gin.Context) *metrics.Metrics {
+	return metrics.Get(c.Request.Context())
 }

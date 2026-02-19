@@ -1,4 +1,4 @@
-package metrics
+package ginmetrics
 
 import (
 	"github.com/gin-gonic/gin"

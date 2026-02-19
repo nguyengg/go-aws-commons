@@ -1,4 +1,4 @@
-package metrics
+package ginmetrics
 
 import (
 	"log/slog"
