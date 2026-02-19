@@ -13,13 +13,7 @@ func WithContext(ctx context.Context, m *Metrics) context.Context {
 
 // NewWithContext combines both New and WithContext in one call.
 func NewWithContext(ctx context.Context, optFns ...func(m *Metrics)) (context.Context, *Metrics) {
-	m := &Metrics{}
-	m.init()
-
-	for _, fn := range optFns {
-		fn(m)
-	}
-
+	m := New(optFns...)
 	return context.WithValue(ctx, metricsKey{}, m), m
 }
 
