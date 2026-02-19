@@ -16,7 +16,9 @@ func TestMetrics_slog(t *testing.T) {
 		var buf bytes.Buffer
 		slog.SetDefault(slog.New(slog.NewJSONHandler(&buf, nil)))
 
-		m := New(LogWithSlog())
+		m := New(func(m *Metrics) {
+			m.logger = &SlogMetricsLogger{}
+		})
 		m.String("hello", "world")
 		m.Int64("status", http.StatusTeapot)
 		m.Float64("pi", 3.14)
@@ -50,9 +52,9 @@ func TestMetrics_slogWithGroup(t *testing.T) {
 		var buf bytes.Buffer
 		slog.SetDefault(slog.New(slog.NewJSONHandler(&buf, nil)))
 
-		m := New(LogWithSlog(func(opts *SlogOptions) {
-			opts.Group = "metrics"
-		}))
+		m := New(func(m *Metrics) {
+			m.logger = &SlogMetricsLogger{Group: "metrics"}
+		})
 		m.String("hello", "world")
 		m.Int64("status", http.StatusTeapot)
 		m.Float64("pi", 3.14)
@@ -89,9 +91,9 @@ func TestMetrics_slogNoCustomFormatter(t *testing.T) {
 		var buf bytes.Buffer
 		slog.SetDefault(slog.New(slog.NewJSONHandler(&buf, nil)))
 
-		m := New(LogWithSlog(func(opts *SlogOptions) {
-			opts.NoCustomFormatter = true
-		}))
+		m := New(func(m *Metrics) {
+			m.logger = &SlogMetricsLogger{NoCustomFormatter: true}
+		})
 		m.String("hello", "world")
 		m.Int64("status", http.StatusTeapot)
 		m.Float64("pi", 3.14)

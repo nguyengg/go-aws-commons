@@ -1,24 +1,62 @@
 package metrics
 
 import (
+	"context"
 	"time"
 
 	"github.com/rs/zerolog"
 )
 
-// LogWithZerolog will change Close to log with zerolog instead.
-//
-// See ZerologOptions for more options.
-func LogWithZerolog(optFns ...func(opts *ZerologOptions)) func(*Metrics) {
-	opts := &ZerologOptions{}
+// ZerologMetricsLogger implements Logger using zerolog.Logger.
+type ZerologMetricsLogger struct {
+	// Logger is the zerolog.Logger instance to use.
+	//
+	// Default to zerolog.Ctx.
+	Logger *zerolog.Logger
 
-	for _, fn := range optFns {
-		fn(opts)
+	// Level is the log level to use.
+	//
+	// By default, the log level is dynamic. If the Metrics instance indicates an error state with non-zero fault
+	// and/or panicked counter, zerolog.ErrorLevel is used. Otherwise, zerolog.InfoLevel is used.
+	Level *zerolog.Level
+
+	// Msg is the message to be used with the log.
+	Msg string
+
+	// Dict is the name of the [zerolog.Event.Dict] to place the Metrics content.
+	//
+	// Equivalent to SlogMetricsLogger.Group.
+	Dict string
+
+	// NoCustomFormatter disables specialised formatting for timestamps and durations.
+	//
+	// By default, to match LogJSON, the start time is logged as epoch millisecond, the end time using RFC1123, and
+	// all time.Duration using FormatDuration. To disable this behaviour and rely on slog's own formatters, set
+	// NoCustomFormatter to true.
+	NoCustomFormatter bool
+}
+
+func (l *ZerologMetricsLogger) Log(ctx context.Context, m *Metrics) error {
+	logger := zerolog.Ctx(ctx)
+
+	var e *zerolog.Event
+	if c := m.counters[CounterKeyFault]; c.isPositive() {
+		e = logger.Error()
+	} else if c := m.counters[CounterKeyPanicked]; c.isPositive() {
+		e = logger.Error()
+	} else {
+		e = logger.Info()
 	}
 
-	return func(m *Metrics) {
-		m.logger = opts
+	if l.Dict != "" {
+		e = e.Dict(l.Dict, m.e(zerolog.Dict(), l.NoCustomFormatter))
+	} else {
+		e = m.e(e, l.NoCustomFormatter)
 	}
+
+	e.Msg(l.Msg)
+
+	return nil
 }
 
 // e set the Metrics.End (if not set) and adds fields to the given zerolog.Event.
@@ -84,6 +122,21 @@ func (m *Metrics) e(e *zerolog.Event, noCustomerFormatter bool) *zerolog.Event {
 }
 
 func (p *property) e(key string, e *zerolog.Event) *zerolog.Event {
+	switch p.t {
+	case stringKind:
+		return e.Str(key, p.v.(string))
+	case int64Kind:
+		return e.Int64(key, p.v.(int64))
+	case float64Kind:
+		return e.Float64(key, p.v.(float64))
+	case anyKind:
+		return e.Any(key, p.v.(any))
+	default:
+		panic("invalid property type")
+	}
+}
+
+func (p *property) c(key string, e zerolog.Context) zerolog.Context {
 	switch p.t {
 	case stringKind:
 		return e.Str(key, p.v.(string))

@@ -2,7 +2,6 @@ package metrics
 
 import (
 	"context"
-	"io"
 	"os"
 	"strconv"
 	"sync"
@@ -38,14 +37,21 @@ type Metrics struct {
 	counters   map[string]counter
 	timings    map[string]latencyStats
 
-	logger metricsLogger
+	logger Logger
 	once   sync.Once
 }
 
-// New creates a new Metrics instance with Metrics.Start set to time.Now and all struct fields populated.
+// Logger controls how the Metrics instance is actually logged when Metrics.Close is called.
+type Logger interface {
+	Log(ctx context.Context, m *Metrics) error
+}
+
+// New creates a new Metrics instance with Metrics.Start set to time.Now.
 //
-// By default, a single JSON entry is logged to os.Stderr. To change this, specify the appropriate optFns such as
-// LogJSON, LogWithSlog, LogWithZerolog.
+// By default, a single JSON entry is logged to os.Stderr (JSONLogger). There's support for SlogMetricsLogger and ZerologMetricsLogger
+// out of the box.
+//
+// New uses DefaultFactory to create the Metrics instance.
 func New(optFns ...func(m *Metrics)) *Metrics {
 	m := &Metrics{}
 	m.init()
@@ -55,13 +61,6 @@ func New(optFns ...func(m *Metrics)) *Metrics {
 	}
 
 	return m
-}
-
-// LogJSON modifies the Metrics instance to log JSON content to the given writer.
-func LogJSON(w io.Writer) func(*Metrics) {
-	return func(m *Metrics) {
-		m.logger = &jsonLogger{w}
-	}
 }
 
 // Close will log the Metrics instance to the channel specified at init.
@@ -148,7 +147,7 @@ func (m *Metrics) init() {
 		}
 
 		if m.logger == nil {
-			m.logger = &jsonLogger{os.Stderr}
+			m.logger = &JSONLogger{os.Stderr}
 		}
 	})
 }
@@ -191,7 +190,7 @@ func (m *Metrics) Int64(key string, value int64) *Metrics {
 	return m
 }
 
-// Float64 creates or modifies a flaot64 key-value property pair.
+// Float64 creates or modifies a float64 key-value property pair.
 //
 // Properties are top-level fields in the JSON log message. If the property is reserved, the method no-ops.
 //

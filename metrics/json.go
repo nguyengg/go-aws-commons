@@ -1,9 +1,38 @@
 package metrics
 
 import (
+	"context"
 	"encoding/json"
+	"io"
+	"os"
 	"time"
 )
+
+// JSONLogger logs Metrics instance as JSON.
+//
+// The zero-value struct is ready for use.
+type JSONLogger struct {
+	// Out is the io.Writer to write JSON content.
+	//
+	// Default to os.Stderr.
+	Out io.Writer
+}
+
+// Log implements Logger.Log.
+//
+// The method returns a non-nil error if there was error encoding the Metrics instance as JSON.
+func (l JSONLogger) Log(ctx context.Context, m *Metrics) error {
+	w := l.Out
+	if w == nil {
+		w = os.Stderr
+	}
+
+	err := json.NewEncoder(w).Encode(m)
+	if err == nil {
+		_, err = w.Write([]byte("\n"))
+	}
+	return err
+}
 
 func (m *Metrics) MarshalJSON() ([]byte, error) {
 	m.init()

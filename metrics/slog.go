@@ -1,23 +1,66 @@
 package metrics
 
 import (
+	"context"
 	"log/slog"
 	"time"
 )
 
-// LogWithSlog changes Metrics.Close to use slog.
-//
-// See SlogOptions for more options.
-func LogWithSlog(optFns ...func(opts *SlogOptions)) func(*Metrics) {
-	opts := &SlogOptions{}
+// SlogMetricsLogger implements Logger using slog.Logger.
+type SlogMetricsLogger struct {
+	// Logger is the slog.Logger instance to use.
+	//
+	// Default to slog.Default.
+	Logger *slog.Logger
 
-	for _, fn := range optFns {
-		fn(opts)
+	// Level is the log level to use.
+	//
+	// By default, the log level is dynamic. If the Metrics instance indicates an error state with non-zero fault
+	// and/or panicked counter, slog.LevelError is used. Otherwise, slog.LevelInfo is used.
+	Level *slog.Level
+
+	// Msg is the message to be used with the log.
+	Msg string
+
+	// Group is the name of the slog.Group to place the Metrics content.
+	//
+	// By default, the Metrics instance is logged as top-level fields (no group).
+	//
+	// Equivalent to ZerologMetricsLogger.Dict.
+	Group string
+
+	// NoCustomFormatter disables specialised formatting for timestamps and durations.
+	//
+	// By default, to match LogJSON, the start time is logged as epoch millisecond, the end time using RFC1123, and
+	// all time.Duration using FormatDuration. To disable this behaviour and rely on slog's own formatters, set
+	// NoCustomFormatter to true.
+	NoCustomFormatter bool
+}
+
+func (l *SlogMetricsLogger) Log(ctx context.Context, m *Metrics) error {
+	attrs := m.attrs(l.NoCustomFormatter)
+
+	var logLevel = slog.LevelInfo
+	if l.Level != nil {
+		logLevel = *l.Level
+	} else if c := m.counters[CounterKeyFault]; c.isPositive() {
+		logLevel = slog.LevelError
+	} else if c := m.counters[CounterKeyPanicked]; c.isPositive() {
+		logLevel = slog.LevelError
 	}
 
-	return func(m *Metrics) {
-		m.logger = opts
+	logger := l.Logger
+	if logger == nil {
+		logger = slog.Default()
 	}
+
+	if l.Group != "" {
+		logger.LogAttrs(ctx, logLevel, l.Msg, slog.GroupAttrs(l.Group, attrs...))
+	} else {
+		logger.LogAttrs(ctx, logLevel, l.Msg, attrs...)
+	}
+
+	return nil
 }
 
 func (m *Metrics) attrs(noCustomFormatter bool) (attrs []slog.Attr) {

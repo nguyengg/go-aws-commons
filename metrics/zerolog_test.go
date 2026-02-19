@@ -17,7 +17,9 @@ func TestMetrics_zerolog(t *testing.T) {
 		logger := zerolog.New(&buf)
 		zerolog.DefaultContextLogger = &logger
 
-		m := New(LogWithZerolog())
+		m := New(func(m *Metrics) {
+			m.logger = &ZerologMetricsLogger{}
+		})
 		m.String("hello", "world")
 		m.Int64("status", http.StatusTeapot)
 		m.Float64("pi", 3.14)
@@ -51,9 +53,9 @@ func TestMetrics_zerologWithDict(t *testing.T) {
 		logger := zerolog.New(&buf)
 		zerolog.DefaultContextLogger = &logger
 
-		m := New(LogWithZerolog(func(opts *ZerologOptions) {
-			opts.Dict = "metrics"
-		}))
+		m := New(func(m *Metrics) {
+			m.logger = &ZerologMetricsLogger{Dict: "metrics"}
+		})
 		m.String("hello", "world")
 		m.Int64("status", http.StatusTeapot)
 		m.Float64("pi", 3.14)
@@ -89,9 +91,9 @@ func TestMetrics_zerologNoCustomFormatter(t *testing.T) {
 		logger := zerolog.New(&buf)
 		zerolog.DefaultContextLogger = &logger
 
-		m := New(LogWithZerolog(func(opts *ZerologOptions) {
-			opts.NoCustomFormatter = true
-		}))
+		m := New(func(m *Metrics) {
+			m.logger = &ZerologMetricsLogger{NoCustomFormatter: true}
+		})
 		m.String("hello", "world")
 		m.Int64("status", http.StatusTeapot)
 		m.Float64("pi", 3.14)
