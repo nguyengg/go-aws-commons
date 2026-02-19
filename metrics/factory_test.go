@@ -5,10 +5,25 @@ import (
 	"log/slog"
 	"testing"
 	"testing/synctest"
+	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestFactory_New(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		DefaultFactory.Any("hello", "world!")
+		DefaultFactory.SetCounter("6", 7)
+
+		m := New()
+		time.Sleep(3 * time.Second) // for duration
+
+		data, err := m.MarshalJSON()
+		assert.NoError(t, err)
+		assert.JSONEq(t, `{"counters":{"6":7,"fault":0,"panicked":0},"duration":"3s","endTime":"Sat, 01 Jan 2000 00:00:03 UTC","hello":"world!","startTime":946684800000}`, string(data))
+	})
+}
 
 func TestFactory_NewSlogLogger(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {

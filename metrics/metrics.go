@@ -53,14 +53,7 @@ type Logger interface {
 //
 // New uses DefaultFactory to create the Metrics instance.
 func New(optFns ...func(m *Metrics)) *Metrics {
-	m := &Metrics{}
-	m.init()
-
-	for _, fn := range optFns {
-		fn(m)
-	}
-
-	return m
+	return DefaultFactory.New(optFns...)
 }
 
 // Close will log the Metrics instance to the channel specified at init.
