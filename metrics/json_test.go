@@ -32,7 +32,7 @@ func TestMetrics_JSONLogger(t *testing.T) {
     },
     "endTime": "Sat, 01 Jan 2000 00:00:03 UTC",
     "hello": "world",
-    "latency": "3s",
+    "duration": "3s",
     "pi": 3.14,
     "startTime": 946684800000,
     "status": 418

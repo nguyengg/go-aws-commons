@@ -71,12 +71,12 @@ func (m *Metrics) e(e *zerolog.Event, noCustomerFormatter bool) *zerolog.Event {
 		e.
 			Time(ReservedKeyStartTime, m.Start).
 			Time(ReservedKeyEndTime, m.End).
-			Dur(ReservedKeyLatency, m.End.Sub(m.Start))
+			Dur(ReservedKeyDuration, m.End.Sub(m.Start))
 	} else {
 		e.
 			Int64(ReservedKeyStartTime, m.Start.UnixMilli()).
 			Str(ReservedKeyEndTime, m.End.UTC().Format(time.RFC1123)).
-			Str(ReservedKeyLatency, FormatDuration(m.End.Sub(m.Start)))
+			Str(ReservedKeyDuration, FormatDuration(m.End.Sub(m.Start)))
 	}
 
 	for k, p := range m.properties {

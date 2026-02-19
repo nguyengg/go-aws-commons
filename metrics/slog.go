@@ -74,13 +74,13 @@ func (m *Metrics) attrs(noCustomFormatter bool) (attrs []slog.Attr) {
 		attrs = []slog.Attr{
 			slog.Time(ReservedKeyStartTime, m.Start),
 			slog.Time(ReservedKeyEndTime, m.End),
-			slog.Duration(ReservedKeyLatency, m.End.Sub(m.Start)),
+			slog.Duration(ReservedKeyDuration, m.End.Sub(m.Start)),
 		}
 	} else {
 		attrs = []slog.Attr{
 			slog.Int64(ReservedKeyStartTime, m.Start.UnixMilli()),
 			slog.String(ReservedKeyEndTime, m.End.UTC().Format(time.RFC1123)),
-			slog.String(ReservedKeyLatency, FormatDuration(m.End.Sub(m.Start))),
+			slog.String(ReservedKeyDuration, FormatDuration(m.End.Sub(m.Start))),
 		}
 	}
 

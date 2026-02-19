@@ -44,7 +44,7 @@ func (m *Metrics) MarshalJSON() ([]byte, error) {
 	res := map[string]any{
 		"startTime": m.Start.UnixMilli(),
 		"endTime":   m.End.UTC().Format(time.RFC1123),
-		"latency":   FormatDuration(m.End.Sub(m.Start)),
+		"duration":  FormatDuration(m.End.Sub(m.Start)),
 	}
 
 	for k, v := range m.properties {

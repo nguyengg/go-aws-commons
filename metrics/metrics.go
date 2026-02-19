@@ -23,19 +23,19 @@ import (
 type Metrics struct {
 	// Start is the start time of the Metrics instance.
 	//
-	// This value is useful for computing the latency ("time") of a singular request. If not overridden (zero-value),
-	// any call to modify the Metrics instance will set Start to time.Now.
+	// This value is useful for computing the duration of a singular request. If not overridden (zero-value), any call
+	// to modify the Metrics instance will set Start to time.Now.
 	Start time.Time
 
 	// End is the end time of the Metrics instance.
 	//
-	// This value is useful for computing the latency ("time") of a singular request. If not overridden (zero-value),
-	// time.Now will be used when logging the Metrics instance.
+	// This value is useful for computing the duration of a singular request. If not overridden (zero-value), time.Now
+	// will be used when logging the Metrics instance.
 	End time.Time
 
 	properties map[string]property
 	counters   map[string]counter
-	timings    map[string]latencyStats
+	timings    map[string]durationStats
 
 	logger Logger
 	once   sync.Once
@@ -99,10 +99,10 @@ const (
 	//
 	// Formatted as http.TimeFormat for human readability; to use native formatter, use Metrics.RawFormatting.
 	ReservedKeyEndTime = "endTime"
-	// ReservedKeyLatency is the top-level property measuring duration between Metrics.Start and Metrics.End.
+	// ReservedKeyDuration is the top-level property measuring duration between Metrics.Start and Metrics.End.
 	//
 	// Formatted using FormatDuration; to use native formatter, use Metrics.RawFormatting.
-	ReservedKeyLatency = "latency"
+	ReservedKeyDuration = "duration"
 	// ReservedKeyCounters is the top-level property containing int64-based and float64-based metrics.
 	ReservedKeyCounters = "counters"
 	// ReservedKeyTimings is the top-level property containing timing-based metrics.
@@ -120,7 +120,7 @@ const (
 var reservedKeys = map[string]bool{
 	ReservedKeyStartTime: true,
 	ReservedKeyEndTime:   true,
-	ReservedKeyLatency:   true,
+	ReservedKeyDuration:  true,
 	ReservedKeyCounters:  true,
 	ReservedKeyTimings:   true,
 }
@@ -143,7 +143,7 @@ func (m *Metrics) init() {
 		}
 
 		if m.timings == nil {
-			m.timings = map[string]latencyStats{}
+			m.timings = map[string]durationStats{}
 		}
 
 		if m.logger == nil {

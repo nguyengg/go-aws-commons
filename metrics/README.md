@@ -54,7 +54,7 @@ func main() {
 		    "userDidSomethingCool": 1
 		  },
 		  "endTime": "Sat, 01 Jan 2000 00:00:03 UTC",
-		  "latency": "3s",
+		  "duration": "3s",
 		  "startTime": 946684800000,
 		  "timings": {
 		    "DynamoDB.GetItem": {

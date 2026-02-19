@@ -63,17 +63,17 @@ func (c *counter) isPositive() bool {
 	}
 }
 
-// latencyStats aggregates one or more time.Duration metrics.
-type latencyStats struct {
+// durationStats aggregates one or more time.Duration metrics.
+type durationStats struct {
 	sum time.Duration
 	min time.Duration
 	max time.Duration
 	n   int64
 }
 
-// newDurationStats creates a new latencyStats instance.
-func newDurationStats(duration time.Duration) latencyStats {
-	return latencyStats{
+// newDurationStats creates a new durationStats instance.
+func newDurationStats(duration time.Duration) durationStats {
+	return durationStats{
 		sum: duration,
 		min: duration,
 		max: duration,
@@ -82,7 +82,7 @@ func newDurationStats(duration time.Duration) latencyStats {
 }
 
 // add adds the specified time.Duration to the dataset.
-func (s *latencyStats) add(d time.Duration) *latencyStats {
+func (s *durationStats) add(d time.Duration) *durationStats {
 	s.sum += d
 
 	if s.min > d {
@@ -98,6 +98,6 @@ func (s *latencyStats) add(d time.Duration) *latencyStats {
 	return s
 }
 
-func (s *latencyStats) avg() time.Duration {
+func (s *durationStats) avg() time.Duration {
 	return s.sum / time.Duration(s.n)
 }
