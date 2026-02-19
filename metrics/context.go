@@ -25,13 +25,24 @@ func NewWithContext(ctx context.Context, optFns ...func(m *Metrics)) (context.Co
 
 // Get returns the Metrics instance from the specified context if available.
 //
-// If the context doesn't contain an instance, a new one will be created.
+// If the context doesn't contain an instance, a new one will be created which most likely is not the right expectation
+// since whoever creates the Metrics instance is often responsible for closing it (in order to log it). Prefer MustGet
+// which will panic if the context does not contain an existing Metrics instance.
 func Get(ctx context.Context) *Metrics {
 	if m, ok := ctx.Value(metricsKey{}).(*Metrics); ok && m != nil {
 		return m
 	}
 
 	return New()
+}
+
+// MustGet is a variant of Get/TryGet that panics if no Metrics instance is found from context.
+func MustGet(ctx context.Context) *Metrics {
+	if m, ok := ctx.Value(metricsKey{}).(*Metrics); ok {
+		return m
+	}
+
+	panic("metrics not found in context")
 }
 
 // TryGet is a variant of Get that does not return a new Metrics instance.
