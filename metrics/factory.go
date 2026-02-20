@@ -156,8 +156,8 @@ var DefaultFactory = &Factory{}
 
 func (f *Factory) init() {
 	f.once.Do(func() {
-		f.properties = make(map[string]property)
-		f.counters = make(map[string]counter)
+		f.properties = map[string]property{}
+		f.counters = map[string]counter{}
 	})
 }
 

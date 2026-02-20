@@ -20,6 +20,6 @@ func WithRecovery() func(cfg *LoggerConfig) {
 // from context. WithRecovery is intended to be a replacement.
 var RecoveryFunc gin.RecoveryFunc = func(c *gin.Context, err any) {
 	m := metrics.Get(c)
-	m.AddCounter("panicked", 1).Any("error", err)
+	m.Panicked().Any("error", err)
 	c.AbortWithStatus(http.StatusInternalServerError)
 }

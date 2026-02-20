@@ -13,10 +13,11 @@ import (
 
 func TestFactory_New(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		DefaultFactory.Any("hello", "world!")
-		DefaultFactory.SetCounter("6", 7)
+		f := Factory{}
+		f.Any("hello", "world!")
+		f.SetCounter("6", 7)
 
-		m := New()
+		m := f.New()
 		time.Sleep(3 * time.Second) // for duration
 
 		data, err := m.MarshalJSON()

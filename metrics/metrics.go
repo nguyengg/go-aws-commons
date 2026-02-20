@@ -133,6 +133,13 @@ func (m *Metrics) init() {
 				CounterKeyFault:    {int64Kind, int64(0)},
 				CounterKeyPanicked: {int64Kind, int64(0)},
 			}
+		} else {
+			if _, ok := m.counters[CounterKeyFault]; !ok {
+				m.counters[CounterKeyFault] = counter{int64Kind, int64(0)}
+			}
+			if _, ok := m.counters[CounterKeyPanicked]; !ok {
+				m.counters[CounterKeyPanicked] = counter{int64Kind, int64(0)}
+			}
 		}
 
 		if m.timings == nil {
@@ -305,18 +312,26 @@ func (m *Metrics) AddFloater(key string, delta float64, ensureExist ...string) *
 	return m
 }
 
-// Faulted is a convenient method to increase the CounterKeyFault counter by 1.
+// Faulted is a convenient method to set the CounterKeyFault counter to 1.
 //
 // Returns self for chaining.
 func (m *Metrics) Faulted() *Metrics {
-	return m.AddCounter(CounterKeyFault, 1)
+	m.init()
+
+	m.counters[CounterKeyFault] = counter{int64Kind, int64(1)}
+
+	return m
 }
 
-// Panicked is a convenient method to increase the CounterKeyPanicked counter by 1.
+// Panicked is a convenient method to set the CounterKeyPanicked counter .
 //
 // Returns self for chaining.
 func (m *Metrics) Panicked() *Metrics {
-	return m.AddCounter(CounterKeyPanicked, 1)
+	m.init()
+
+	m.counters[CounterKeyPanicked] = counter{int64Kind, int64(1)}
+
+	return m
 }
 
 // AddTiming adds the latency time.Duration to aggregated dataset.
