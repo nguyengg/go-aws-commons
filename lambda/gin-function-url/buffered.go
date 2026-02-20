@@ -15,7 +15,7 @@ import (
 	"github.com/nguyengg/go-aws-commons/metrics"
 )
 
-// StartBuffered starts the Lambda loop in BUFFERED mode with the given Gin engine.
+// StartBuffered starts the Lambda loop in BUFFERED mode with the given gin.Engine.
 func StartBuffered(r *gin.Engine, options ...awslambda.Option) {
 	r.Use(fault)
 
@@ -88,4 +88,11 @@ func (w *bufferedResponseWriter) Write(bytes []byte) (int, error) {
 
 func (w *bufferedResponseWriter) WriteHeader(statusCode int) {
 	w.statusCode = statusCode
+}
+
+var _ http.Flusher = &bufferedResponseWriter{}
+var _ http.Flusher = (*bufferedResponseWriter)(nil)
+
+func (w *bufferedResponseWriter) Flush() {
+	// do nothing since bytes.Buffer needs no flushing.
 }

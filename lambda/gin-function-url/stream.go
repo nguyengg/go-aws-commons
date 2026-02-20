@@ -30,7 +30,7 @@ func fault(c *gin.Context) {
 	if err := c.Errors.Last(); err != nil {
 		// we can't use metrics.Get(c) because we can't rely on user enabling gin.Engine.ContextWithFallback.
 		// we technically can do that for user, but that's more dangerous than prepending our own middleware.
-		metrics.Get(c.Request.Context()).AddCounter("fault", 1)
+		metrics.Get(c.Request.Context()).Faulted()
 	}
 }
 
@@ -52,13 +52,11 @@ func (h handler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 
 	defer func() {
 		if r := recover(); r != nil {
-			m.AddCounter("panicked", 1, "fault")
+			m.Panicked()
 			m.Any("error", r)
 		} else if w.err != nil {
-			m.AddCounter("fault", 1, "panicked")
+			m.Faulted()
 			m.Any("error", w.err)
-		} else {
-			m.SetCounter("fault", 0, "panicked")
 		}
 
 		_ = m.CloseContext(ctx)
@@ -83,4 +81,12 @@ func (w *writer) Write(p []byte) (n int, _ error) {
 func (w *writer) WriteHeader(statusCode int) {
 	w.Int64("status", int64(statusCode))
 	w.ResponseWriter.WriteHeader(statusCode)
+}
+
+var _ http.Flusher = &writer{}
+var _ http.Flusher = (*writer)(nil)
+
+func (w *writer) Flush() {
+	// the gin's writer implements flush already.
+	w.ResponseWriter.(http.Flusher).Flush()
 }
