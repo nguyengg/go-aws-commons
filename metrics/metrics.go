@@ -250,6 +250,16 @@ func (m *Metrics) Error(value error) *Metrics {
 	return m
 }
 
+// HasError returns true only if Error has been called before.
+//
+// Some framework can automatically call Error, but to avoid overriding a custom error that user has set, use this.
+func (m *Metrics) HasError() bool {
+	m.init()
+
+	_, ok := m.properties[ReservedKeyError]
+	return ok
+}
+
 // Any sets a property whose value can have any type.
 //
 // The value should implement json.Marshaler if logging using JSON; [slog.Valuer] if logging with slog.
