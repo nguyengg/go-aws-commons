@@ -1,4 +1,4 @@
-package ginadapter
+package functionurl
 
 import (
 	"bytes"
@@ -10,15 +10,14 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	awslambda "github.com/aws/aws-lambda-go/lambda"
-	"github.com/gin-gonic/gin"
 	"github.com/nguyengg/go-aws-commons/lambda"
 	"github.com/nguyengg/go-aws-commons/metrics"
 )
 
-// StartBuffered starts the Lambda loop in BUFFERED mode with the given gin.Engine.
-func StartBuffered(r *gin.Engine, options ...awslambda.Option) {
-	r.Use(fault)
-
+// StartBuffered starts the Lambda loop in BUFFERED mode with the given handler.
+//
+// gin.Engine satisfies http.Handler so you should pass one here.
+func StartBuffered(handler http.Handler, options ...awslambda.Option) {
 	lambda.StartHandlerFunc(func(ctx context.Context, req events.LambdaFunctionURLRequest) (res events.LambdaFunctionURLResponse, err error) {
 		ctx = context.WithValue(ctx, &requestCtxKey{}, req)
 		m := metrics.Get(ctx)
@@ -39,10 +38,12 @@ func StartBuffered(r *gin.Engine, options ...awslambda.Option) {
 
 		// this is really where the magic happens. because gin.Engine implements http.Handler interface, we can
 		// use it like this.
-		r.ServeHTTP(w, httpRequest)
+		handler.ServeHTTP(w, httpRequest)
 
 		res.StatusCode = w.statusCode
-		m.Int64("status", int64(w.statusCode))
+		m.
+			Int64("status", int64(w.statusCode)).
+			Int64("size", int64(w.buf.Len()))
 
 		// cookies and headers come from the same w.header.
 		res.Cookies = make([]string, 0)

@@ -37,7 +37,7 @@ func main() {
 ## Gin adapter for Function URL
 
 A Gin adapter for API Gateway V1 and V2 are already available from github.com/awslabs/aws-lambda-go-api-proxy.
-The [gin-function-url](gin-function-url) module (named `ginadapter`) provides an adapter specifically for Function URL
+The [gin-function-url](function-url) module (named `ginadapter`) provides an adapter specifically for Function URL
 events with both BUFFERED (which, technically, is no different from API Gateway V2/HTTP events) and RESPONSE_STREAM mode
 which uses [`github.com/aws/aws-lambda-go/lambdaurl`](https://github.com/aws/aws-lambda-go).
 
@@ -49,7 +49,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/render"
-	ginadapter "github.com/nguyengg/go-aws-commons/lambda/gin-function-url"
+	functionurl "github.com/nguyengg/go-aws-commons/lambda/function-url"
 )
 
 func main() {
@@ -61,8 +61,8 @@ func main() {
 	})
 
 	// start the Lambda handler either in BUFFERED or STREAM_RESPONSE mode.
-	ginadapter.StartBuffered(r)
-	ginadapter.StartStream(r)
+	functionurl.StartBuffered(r)
+	functionurl.StartStream(r)
 }
 
 ```

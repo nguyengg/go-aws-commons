@@ -1,4 +1,4 @@
-package ginadapter
+package functionurl
 
 import (
 	"bytes"
