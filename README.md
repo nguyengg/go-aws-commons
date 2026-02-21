@@ -76,7 +76,7 @@ See [lambda](lambda) module for more examples.
 ### Gin adapter for Function URL
 
 A Gin adapter for API Gateway V1 and V2 are already available from github.com/awslabs/aws-lambda-go-api-proxy.
-The [lambda/gin-function-url](lambda/gin-function-url) module (named `ginadapter`)
+The [lambda/gin-function-url](lambda/function-url) module (named `functionurl`)
 provides an adapter specifically for Function URL events with both BUFFERED (which, technically, is no different from
 API Gateway V2/HTTP events) and RESPONSE_STREAM mode which uses
 [`github.com/aws/aws-lambda-go/lambdaurl`](https://github.com/aws/aws-lambda-go).
