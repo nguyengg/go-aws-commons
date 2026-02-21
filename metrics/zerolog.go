@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -116,6 +117,17 @@ func (m *Metrics) e(e *zerolog.Event, noCustomerFormatter bool) *zerolog.Event {
 		}
 
 		e.Dict(ReservedKeyTimings, d)
+	}
+
+	if len(m.errors) != 0 {
+		data, err := m.errors.MarshalJSON()
+		if err != nil {
+			panic(err)
+		}
+
+		log.Printf("raw json")
+
+		e.RawJSON(ReservedKeyErrors, data)
 	}
 
 	return e

@@ -42,9 +42,9 @@ func (m *Metrics) MarshalJSON() ([]byte, error) {
 	}
 
 	res := map[string]any{
-		"startTime": m.Start.UnixMilli(),
-		"endTime":   m.End.UTC().Format(time.RFC1123),
-		"duration":  FormatDuration(m.End.Sub(m.Start)),
+		ReservedKeyStartTime: m.Start.UnixMilli(),
+		ReservedKeyEndTime:   m.End.UTC().Format(time.RFC1123),
+		ReservedKeyDuration:  FormatDuration(m.End.Sub(m.Start)),
 	}
 
 	for k, v := range m.properties {
@@ -58,7 +58,7 @@ func (m *Metrics) MarshalJSON() ([]byte, error) {
 			counters[k] = c.v
 		}
 
-		res["counters"] = counters
+		res[ReservedKeyCounters] = counters
 	}
 
 	if len(m.timings) != 0 {
@@ -73,7 +73,11 @@ func (m *Metrics) MarshalJSON() ([]byte, error) {
 			}
 		}
 
-		res["timings"] = timings
+		res[ReservedKeyTimings] = timings
+	}
+
+	if len(m.errors) != 0 {
+		res[ReservedKeyErrors] = m.errors.toJSON()
 	}
 
 	return json.Marshal(res)

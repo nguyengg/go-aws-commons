@@ -125,6 +125,11 @@ func (m *Metrics) attrs(noCustomFormatter bool) (attrs []slog.Attr) {
 		attrs = append(attrs, slog.GroupAttrs(ReservedKeyTimings, timingAttrs...))
 	}
 
+	if len(m.errors) != 0 {
+		// https://github.com/golang/go/issues/71088 no support for list so must marshal to JSON here :(
+		attrs = append(attrs, slog.Any(ReservedKeyErrors, m.errors.toJSON()))
+	}
+
 	return
 }
 

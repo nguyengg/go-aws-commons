@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/rotisserie/eris"
 )
 
 // Metrics contains metrics about a single request or operation.
@@ -19,7 +21,8 @@ import (
 // time.Now if Start is zero value. Metrics is not safe for concurrent use.
 //
 // The Metrics instance can be logged in several ways. By default, Close will write a JSON entry to os.Stderr. To log
-// with slog or zerolog, pass LogWithSlog or LogWithZerolog accordingly.
+// with slog or zerolog, pass SlogMetricsLogger or ZerologMetricsLogger into the Factory that is used to create the
+// Metrics instance.
 type Metrics struct {
 	// Start is the start time of the Metrics instance.
 	//
@@ -36,6 +39,7 @@ type Metrics struct {
 	properties map[string]property
 	counters   map[string]counter
 	timings    map[string]durationStats
+	errors     errorStack
 
 	logger Logger
 	once   sync.Once
@@ -102,6 +106,21 @@ const (
 	//
 	// Formatted using FormatDuration; to use native formatter, use Metrics.RawFormatting.
 	ReservedKeyTimings = "timings"
+	// ReservedKeyError is the top-level property containing the error that causes your program to stop, and is often
+	// returned by the entry point method.
+	//
+	// This property can only be set using Metrics.Error, and will automatically set "fault" (CounterKeyFault) counter
+	// to 1.
+	//
+	// Each error will be formatted using eris.ToJSON.
+	ReservedKeyError = "error"
+	// ReservedKeyErrors is the top-level property containing errors and their stack traces.
+	//
+	// This property is a stack and can only be modified with Metrics.PushError. Because it's a stack, the log will show
+	// them in reverse order: later errors will show up before earlier errors.
+	//
+	// Each error will be formatted using eris.ToJSON.
+	ReservedKeyErrors = "errors"
 
 	// CounterKeyFault is a special counter metrics that indicates the request or operation ends with an error.
 	CounterKeyFault = "fault"
@@ -116,6 +135,8 @@ var reservedKeys = map[string]bool{
 	ReservedKeyDuration:  true,
 	ReservedKeyCounters:  true,
 	ReservedKeyTimings:   true,
+	ReservedKeyError:     true,
+	ReservedKeyErrors:    true,
 }
 
 func (m *Metrics) init() {
@@ -146,17 +167,20 @@ func (m *Metrics) init() {
 			m.timings = map[string]durationStats{}
 		}
 
+		if m.errors == nil {
+			m.errors = errorStack{}
+		}
+
 		if m.logger == nil {
 			m.logger = &JSONLogger{os.Stderr}
 		}
 	})
 }
 
-// String creates or modifies a string key-value property pair.
+// String sets a string property.
 //
-// Properties are top-level fields in the JSON log message. If the property is reserved, the method no-ops.
-//
-// If called multiples on the same key, the last one wins.
+// Properties are top-level fields in the JSON log message. If the property's key is reserved, the method no-ops. If
+// called multiples on the same key, the last one wins.
 //
 // Returns self for chaining.
 func (m *Metrics) String(key, value string) *Metrics {
@@ -171,11 +195,10 @@ func (m *Metrics) String(key, value string) *Metrics {
 	return m
 }
 
-// Int64 creates or modifies an int64 key-value property pair.
+// Int64 sets a property whose value is type int64.
 //
-// Properties are top-level fields in the JSON log message. If the property is reserved, the method no-ops.
-//
-// If called multiples on the same key, the last one wins.
+// Properties are top-level fields in the JSON log message. If the property's key is reserved, the method no-ops. If
+// called multiples on the same key, the last one wins.
 //
 // Returns self for chaining.
 func (m *Metrics) Int64(key string, value int64) *Metrics {
@@ -190,11 +213,10 @@ func (m *Metrics) Int64(key string, value int64) *Metrics {
 	return m
 }
 
-// Float64 creates or modifies a float64 key-value property pair.
+// Float64 sets a property whose value is type float64.
 //
-// Properties are top-level fields in the JSON log message. If the property is reserved, the method no-ops.
-//
-// If called multiples on the same key, the last one wins.
+// Properties are top-level fields in the JSON log message. If the property's key is reserved, the method no-ops. If
+// called multiples on the same key, the last one wins.
 //
 // Returns self for chaining.
 func (m *Metrics) Float64(key string, value float64) *Metrics {
@@ -209,7 +231,31 @@ func (m *Metrics) Float64(key string, value float64) *Metrics {
 	return m
 }
 
-// Any is a variant of String that accepts any value instead.
+// Error sets a property whose value is type error.
+//
+// The error will be formatted as JSON using eris.ToJSON with trace capture. If you don't want this behaviour, use Any.
+// Calling Error will automatically set "fault" (CounterKeyFault) counter to 1. This should be given the error that is
+// returned by your entry point, as opposed to PushError.
+//
+// Properties are top-level fields in the JSON log message. If the property's key is reserved, the method no-ops. If
+// called multiples on the same key, the last one wins.
+//
+// Returns self for chaining.
+func (m *Metrics) Error(value error) *Metrics {
+	m.init()
+
+	m.properties[ReservedKeyError] = property{anyKind, eris.ToJSON(value, true)}
+	m.counters[CounterKeyFault] = counter{int64Kind, int64(1)}
+
+	return m
+}
+
+// Any sets a property whose value can have any type.
+//
+// The value should implement json.Marshaler if logging using JSON; [slog.Valuer] if logging with slog.
+//
+// Properties are top-level fields in the JSON log message. If the property's key is reserved, the method no-ops. If
+// called multiples on the same key, the last one wins.
 //
 // Returns self for chaining.
 func (m *Metrics) Any(key string, value any) *Metrics {
@@ -347,6 +393,21 @@ func (m *Metrics) AddTiming(key string, latency time.Duration) *Metrics {
 	} else {
 		m.timings[key] = newDurationStats(latency)
 	}
+
+	return m
+}
+
+// PushError pushes the given error to the "errors" (ReservedKeyErrors) error stack.
+//
+// PushError does not automatically set "fault" (CounterKeyFault) counter. It can be used to log arbitrary errors that
+// your program encounter but were able to handle. If there was an error that caused your program to stop, use Error
+// instead, or in addition to PushError.
+//
+// Returns self for chaining.
+func (m *Metrics) PushError(err error, withTrace bool) *Metrics {
+	m.init()
+
+	m.errors.push(err, withTrace)
 
 	return m
 }
