@@ -22,14 +22,18 @@ func Logger(options ...func(cfg *LoggerConfig)) gin.HandlerFunc {
 		var (
 			ctx = c.Request.Context()
 			m   *metrics.Metrics
+			ok  bool
 		)
 
-		if newFn := cfg.newMetrics; newFn == nil {
-			ctx, m = metrics.NewWithContext(ctx)
-			c.Request = c.Request.WithContext(ctx)
-		} else {
-			m = newFn(c)
-			c.Request = c.Request.WithContext(metrics.WithContext(ctx, m))
+		m, ok = metrics.TryGet(ctx)
+		if !ok {
+			if newFn := cfg.newMetrics; newFn == nil {
+				ctx, m = metrics.NewWithContext(ctx)
+				c.Request = c.Request.WithContext(ctx)
+			} else {
+				m = newFn(c)
+				c.Request = c.Request.WithContext(metrics.WithContext(ctx, m))
+			}
 		}
 
 		var logger = cfg.Parent
@@ -73,7 +77,9 @@ func Logger(options ...func(cfg *LoggerConfig)) gin.HandlerFunc {
 				Int64("status", int64(c.Writer.Status())).
 				Int64("size", int64(c.Writer.Size()))
 
-			_ = m.CloseContext(c)
+			if !ok {
+				_ = m.CloseContext(c)
+			}
 		}()
 
 		c.Next()
@@ -116,7 +122,10 @@ func SkipPath(paths ...string) func(cfg *LoggerConfig) {
 // WithCustomMetrics can be used to customise how the metrics.Metrics instance is created and attached to gin.Context.
 //
 // Useful if you need to populate the metrics.Metrics instance with additional properties, or you want to change how
-// the metrics.Metrics instance is logged.
+// the metrics.Metrics instance is logged. Note: if a metrics.Metrics instance is already available from context, the
+// middleware will not create a new one (hence it will not trigger fn), and it will not be responsible for closing the
+// instance either since the instance may have been created by an earlier middleware, and that middleware should be
+// responsible for closing and logging the metrics.
 func WithCustomMetrics(fn func(c *gin.Context) *metrics.Metrics) func(cfg *LoggerConfig) {
 	return func(cfg *LoggerConfig) {
 		cfg.newMetrics = fn
