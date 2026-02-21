@@ -2,11 +2,13 @@ package ginmetrics
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/nguyengg/go-aws-commons/metrics"
+	"github.com/rotisserie/eris"
 )
 
 // Logger is a replacement for gin.Logger that uses metrics.Metrics instead.
@@ -57,25 +59,36 @@ func Logger(options ...func(cfg *LoggerConfig)) gin.HandlerFunc {
 			String("userAgent", c.Request.UserAgent())
 
 		defer func() {
-			if errors := c.Errors.ByType(gin.ErrorTypePrivate); len(errors) != 0 {
-				m.Faulted().
-					Any("errors", errors).
-					Any("error", errors.Last())
-			}
+			if !cfg.DisableRecovery {
+				if r := recover(); r != nil {
+					m.Panicked()
 
-			if cfg.recovery {
-				if err := recover(); err != nil {
-					m.Panicked().
-						Any("error", err)
+					switch v := r.(type) {
+					case error:
+						m.Error(v)
+					default:
+						m.Error(eris.Wrapf(fmt.Errorf("%+v", v), "recover non-error %T: %#v", v, v))
+					}
 
-					// TODO do what gin.Recovery does (display stack trace, etc.)
 					c.AbortWithStatus(http.StatusInternalServerError)
 				}
 			}
 
+			if errors := c.Errors.ByType(gin.ErrorTypePrivate); len(errors) != 0 {
+				for _, err := range errors {
+					m.PushError(err, true)
+				}
+			}
+
+			if err := c.Errors.Last(); err != nil && !m.HasError() {
+				m.Error(err)
+			}
+
+			w := c.Writer
+
 			m.
-				Int64("status", int64(c.Writer.Status())).
-				Int64("size", int64(c.Writer.Size()))
+				Int64("status", int64(w.Status())).
+				Int64("size", int64(w.Size()))
 
 			if !ok {
 				_ = m.CloseContext(c)
@@ -93,6 +106,9 @@ type LoggerConfig struct {
 	// Combine both [gin.LoggerConfig.SkipPath] and [gin.LoggerConfig.Skip].
 	Skip func(ctx context.Context, req *http.Request) bool
 
+	// DisableRecovery, if specified, disable gin.Recovery replacement.
+	DisableRecovery bool
+
 	// Parent is the slog.Logger instance that is used to derive loggers for specific requests.
 	//
 	// If nil, slog.Default will be used. The child loggers can be retrieved with Slog.
@@ -100,7 +116,6 @@ type LoggerConfig struct {
 
 	newMetrics func(c *gin.Context) *metrics.Metrics
 	requestId  func() string
-	recovery   bool
 }
 
 // SkipPath is a convenient method to replace LoggerConfig.Skip with one that will skip logging for any request to the
