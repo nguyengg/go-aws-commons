@@ -8,7 +8,8 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.34.18
 	github.com/aws/aws-sdk-go-v2/service/ssm v1.56.12
 	github.com/gin-gonic/gin v1.10.0
-	github.com/nguyengg/go-aws-commons/metrics v0.4.0
+	github.com/nguyengg/go-aws-commons/metrics v0.5.4
+	github.com/rotisserie/eris v0.5.4
 	github.com/stretchr/testify v1.11.1
 )
 
@@ -25,7 +26,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sso v1.30.10 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.14 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.41.6 // indirect
-	github.com/aws/smithy-go v1.24.0 // indirect
+	github.com/aws/smithy-go v1.24.1 // indirect
 	github.com/bytedance/sonic v1.12.9 // indirect
 	github.com/bytedance/sonic/loader v0.2.3 // indirect
 	github.com/cloudwego/base64x v0.1.5 // indirect

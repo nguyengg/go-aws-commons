@@ -4,7 +4,6 @@ import (
 	"log"
 	"log/slog"
 	"net/http"
-	"os"
 
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-lambda-go/lambdacontext"
@@ -15,8 +14,6 @@ import (
 
 // StartStream starts the Lambda loop in STREAM_RESPONSE mode with the given Gin engine.
 func StartStream(r *gin.Engine, options ...lambda.Option) {
-	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{ReplaceAttr: metrics.ReplaceAttr()})))
-
 	r.Use(fault)
 
 	// because gin.Engine implements http.Handler interface, lambdaurl already provides this adapter for me.

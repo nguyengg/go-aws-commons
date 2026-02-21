@@ -20,22 +20,17 @@ import (
 )
 
 func main() {
-	// you can use a specific specialisation for your handler like DynamoDB stream event below.
-	lambda.StartDynamoDBEventHandleFunc(func(ctx context.Context, event events.DynamoDBEvent) (events.DynamoDBEventResponse, error) {
-		m := metrics.Ctx(ctx)
-		m.IncrementCount("myMetric")
-		return events.DynamoDBEventResponse{}, nil
-	})
-
-	// or you can use the generic StartHandlerFunc template if there isn't a specialisation.
+	// start Lambda loop like this.
 	lambda.StartHandlerFunc(func(ctx context.Context, event events.DynamoDBEvent) (events.DynamoDBEventResponse, error) {
-		m := metrics.Ctx(ctx)
-		m.IncrementCount("myMetric")
+		m := metrics.Get(ctx)
+		m.AddCounter("userDidSomethingCool", 1)
+
+		// when your handler returns, the Metrics instance will be logged to standard error stream.
+		// see https://pkg.go.dev/github.com/nguyengg/go-aws-commons/metrics for examples of what is logged.
 		return events.DynamoDBEventResponse{}, nil
 	})
-
-	// when your handler returns, the Metrics instance will be logged to standard error stream.
 }
+
 
 ```
 

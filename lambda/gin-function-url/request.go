@@ -88,7 +88,7 @@ func toHTTPRequest(req *events.LambdaFunctionURLRequest) (r *http.Request, err e
 	// invocation header can show up for the same key multiple times with the values split by ",".
 	for k, values := range req.Headers {
 		k = http.CanonicalHeaderKey(k)
-		for _, v := range strings.Split(values, ",") {
+		for v := range strings.SplitSeq(values, ",") {
 			r.Header.Add(k, v)
 		}
 	}
