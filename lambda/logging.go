@@ -36,11 +36,10 @@ func SetUpLogDefault() {
 // in-depth explanation.
 func SetUpSlogDefault() {
 	debug, _ := strconv.ParseBool(os.Getenv("DEBUG"))
-	var level *slog.LevelVar
+	var level slog.Level
 	if debug {
-		slog.SetLogLoggerLevel(slog.LevelDebug)
-		level = new(slog.LevelVar)
-		level.Set(slog.LevelDebug)
+		level = slog.LevelDebug
+		slog.SetLogLoggerLevel(level)
 	}
 
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{

@@ -52,7 +52,7 @@ func (h *ConsumerFuncOptions[TIn, H]) Start() {
 		if lc, ok := lambdacontext.FromContext(ctx); ok {
 			if !h.NoSetUpLogging {
 				log.SetPrefix(lc.AwsRequestID + " ")
-				slog.SetDefault(slog.With("awsRequestId", lc.AwsRequestID))
+				slog.SetDefault(slog.With(slog.String("awsRequestId", lc.AwsRequestID)))
 			}
 
 			m.String("awsRequestId", lc.AwsRequestID)
