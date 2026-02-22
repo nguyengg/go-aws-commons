@@ -5,6 +5,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/rotisserie/eris"
 	"github.com/rs/zerolog"
 )
 
@@ -143,6 +144,8 @@ func (p *property) e(key string, e *zerolog.Event) *zerolog.Event {
 		return e.Float64(key, p.v.(float64))
 	case anyKind:
 		return e.Any(key, p.v.(any))
+	case errorKind:
+		return e.Any(key, eris.ToJSON(p.v.(error), true))
 	default:
 		panic("invalid property type")
 	}

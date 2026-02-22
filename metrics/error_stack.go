@@ -19,7 +19,7 @@ func (w *wrappedError) toJSON() map[string]any {
 type errorStack []wrappedError
 
 func (s *errorStack) push(err error, withTrace bool) {
-	*s = slices.Insert(*s, 0, wrappedError{err: eris.Wrap(err, ""), withTrace: withTrace})
+	*s = slices.Insert(*s, 0, wrappedError{err: eris.Wrap(err, err.Error()), withTrace: withTrace})
 }
 
 func (s *errorStack) toJSON() []map[string]any {

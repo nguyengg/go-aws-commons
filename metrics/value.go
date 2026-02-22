@@ -11,9 +11,10 @@ type kind int
 
 const (
 	stringKind kind = iota
-	anyKind
 	int64Kind
 	float64Kind
+	errorKind
+	anyKind
 )
 
 // property is either string or interface (any).

@@ -6,6 +6,8 @@ import (
 	"io"
 	"os"
 	"time"
+
+	"github.com/rotisserie/eris"
 )
 
 // JSONLogger logs Metrics instance as JSON.
@@ -48,7 +50,7 @@ func (m *Metrics) MarshalJSON() ([]byte, error) {
 	}
 
 	for k, v := range m.properties {
-		res[k] = v.v
+		res[k] = v.json()
 	}
 
 	if len(m.counters) != 0 {
@@ -81,4 +83,13 @@ func (m *Metrics) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(res)
+}
+
+func (p *property) json() any {
+	switch p.t {
+	case errorKind:
+		return eris.ToJSON(p.v.(error), true)
+	default:
+		return p.v
+	}
 }

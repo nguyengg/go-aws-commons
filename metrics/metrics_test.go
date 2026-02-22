@@ -1,9 +1,15 @@
 package metrics
 
 import (
+	"context"
+	"errors"
+	"fmt"
+	"log/slog"
+	"os"
 	"testing"
 	"time"
 
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -34,4 +40,28 @@ func TestFormatDuration(t *testing.T) {
 			assert.Equalf(t, tt.want, FormatDuration(tt.args), "FormatSeconds(%v)", tt.args)
 		})
 	}
+}
+
+func TestMetrics_Error(t *testing.T) {
+	m := New()
+	m.Error(createError())
+	m.AnError("myError", createError(), true)
+
+	data, err := m.MarshalJSON()
+	assert.NoError(t, err)
+
+	// because data contains local path, can't assert thereon.
+	fmt.Printf("%s\n", data)
+
+	if logger := slog.New(slog.NewJSONHandler(os.Stderr, nil)); true {
+		logger.LogAttrs(context.Background(), slog.LevelInfo, "", slog.Any("metrics", m))
+	}
+
+	if logger := zerolog.New(os.Stderr); true {
+		m.e(logger.Info(), false).Send()
+	}
+}
+
+func createError() error {
+	return errors.New("test error")
 }

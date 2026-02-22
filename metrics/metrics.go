@@ -231,11 +231,15 @@ func (m *Metrics) Float64(key string, value float64) *Metrics {
 	return m
 }
 
-// Error sets a property whose value is type error.
+// Error sets the property "error" (ReservedKeyError).
 //
-// The error will be formatted as JSON using eris.ToJSON with trace capture. If you don't want this behaviour, use Any.
+// The error will be wrapped (eris.Wrap) and formatted as JSON (eris.ToJSON with trace capture) at logging. If you don't
+// want this behaviour, use Any. You can also mimic this behaviour but for other properties with:
+//
+//	m.Any("myError", eris.ToJSON(eris.Wrap(myError, "message"), true))
+//
 // Calling Error will automatically set "fault" (CounterKeyFault) counter to 1. This should be given the error that is
-// returned by your entry point, as opposed to PushError.
+// returned by your entry point, as opposed to PushError which can be given any errors you feel like should be logged.
 //
 // Properties are top-level fields in the JSON log message. If the property's key is reserved, the method no-ops. If
 // called multiples on the same key, the last one wins.
@@ -244,7 +248,7 @@ func (m *Metrics) Float64(key string, value float64) *Metrics {
 func (m *Metrics) Error(value error) *Metrics {
 	m.init()
 
-	m.properties[ReservedKeyError] = property{anyKind, eris.ToJSON(value, true)}
+	m.properties[ReservedKeyError] = property{errorKind, eris.Wrap(value, value.Error())}
 	m.counters[CounterKeyFault] = counter{int64Kind, int64(1)}
 
 	return m
@@ -258,6 +262,24 @@ func (m *Metrics) HasError() bool {
 
 	_, ok := m.properties[ReservedKeyError]
 	return ok
+}
+
+// AnError is a variant of Error that allows arbitrary key (except for reserved keys).
+//
+// Properties are top-level fields in the JSON log message. If the property's key is reserved, the method no-ops. If
+// called multiples on the same key, the last one wins.
+//
+// Returns self for chaining.
+func (m *Metrics) AnError(key string, value error) *Metrics {
+	m.init()
+
+	if reservedKeys[key] {
+		return m
+	}
+
+	m.properties[key] = property{errorKind, eris.Wrap(value, value.Error())}
+
+	return m
 }
 
 // Any sets a property whose value can have any type.

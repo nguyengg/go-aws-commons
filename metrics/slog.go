@@ -4,6 +4,8 @@ import (
 	"context"
 	"log/slog"
 	"time"
+
+	"github.com/rotisserie/eris"
 )
 
 // SlogMetricsLogger implements Logger using slog.Logger.
@@ -145,6 +147,8 @@ func (p *property) attr(key string) slog.Attr {
 		return slog.Int64(key, p.v.(int64))
 	case float64Kind:
 		return slog.Float64(key, p.v.(float64))
+	case errorKind:
+		return slog.Any(key, eris.ToJSON(p.v.(error), true))
 	case anyKind:
 		return slog.Any(key, p.v)
 	default:
