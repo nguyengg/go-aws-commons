@@ -45,7 +45,7 @@ func TestFormatDuration(t *testing.T) {
 func TestMetrics_Error(t *testing.T) {
 	m := New()
 	m.Error(createError())
-	m.AnError("myError", createError(), true)
+	m.AnError("myError", createError())
 
 	data, err := m.MarshalJSON()
 	assert.NoError(t, err)
