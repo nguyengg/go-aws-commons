@@ -34,6 +34,16 @@ func JSONStringValue(s string) slog.Value {
 	return slog.StringValue(s)
 }
 
+// JSON is a slog.Any wrapper around JSONValue.
+func JSON(key string, data []byte) slog.Attr {
+	return slog.Any(key, JSONValue(data))
+}
+
+// JSONString is a slog.Any wrapper around JSONStringValue.
+func JSONString(key, value string) slog.Attr {
+	return slog.Any(key, JSONStringValue(value))
+}
+
 type jsonValue struct {
 	data []byte
 }
