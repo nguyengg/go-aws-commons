@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/smithy-go"
 	smithymw "github.com/aws/smithy-go/middleware"
+	"github.com/rotisserie/eris"
 )
 
 // WithClientSideMetrics adds a ClientSideMetricsMiddleware to the config that is being created.
@@ -96,6 +97,7 @@ func ClientSideMetricsMiddleware(options ...Option) func(stack *smithymw.Stack) 
 }
 
 type clientSideMetricsMiddleware struct {
+	strict bool
 }
 
 func (c clientSideMetricsMiddleware) ID() string {
@@ -114,7 +116,11 @@ func (c clientSideMetricsMiddleware) HandleDeserialize(ctx context.Context, in s
 
 	m, ok := TryGet(ctx)
 	if !ok {
-		slog.LogAttrs(ctx, slog.LevelWarn, "no metrics available from context")
+		if c.strict {
+			return out, metadata, eris.New("no metrics available from context")
+		}
+
+		slog.LogAttrs(ctx, slog.LevelDebug, "no metrics available from context")
 		return
 	}
 
@@ -152,6 +158,14 @@ func (c clientSideMetricsMiddleware) HandleDeserialize(ctx context.Context, in s
 }
 
 // Option allows customization of the ClientSideMetricsMiddleware.
+type Option func(opts *clientSideMetricsMiddleware)
+
+// WithStrictMode will fail the AWS request if a metrics.Metrics instance is not available from context.
 //
-// At the moment, there are no customizations available yet.
-type Option func(*clientSideMetricsMiddleware)
+// By default, in non-strict mode, if metrics.TryGet does not return a metrics.Metrics instance, slog.Debug is used to
+// log a warning message. In strict mode, the AWS request will fail outright.
+func WithStrictMode() func(*clientSideMetricsMiddleware) {
+	return func(opts *clientSideMetricsMiddleware) {
+		opts.strict = true
+	}
+}
