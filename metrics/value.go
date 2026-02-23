@@ -73,8 +73,8 @@ type durationStats struct {
 }
 
 // newDurationStats creates a new durationStats instance.
-func newDurationStats(duration time.Duration) durationStats {
-	return durationStats{
+func newDurationStats(duration time.Duration) *durationStats {
+	return &durationStats{
 		sum: duration,
 		min: duration,
 		max: duration,

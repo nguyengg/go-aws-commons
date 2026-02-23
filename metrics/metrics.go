@@ -38,7 +38,7 @@ type Metrics struct {
 
 	properties map[string]property
 	counters   map[string]counter
-	timings    map[string]durationStats
+	timings    map[string]*durationStats
 	errors     errorStack
 
 	logger Logger
@@ -164,7 +164,7 @@ func (m *Metrics) init() {
 		}
 
 		if m.timings == nil {
-			m.timings = map[string]durationStats{}
+			m.timings = map[string]*durationStats{}
 		}
 
 		if m.errors == nil {
