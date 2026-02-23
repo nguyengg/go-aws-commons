@@ -85,15 +85,8 @@ func newDurationStats(duration time.Duration) *durationStats {
 // add adds the specified time.Duration to the dataset.
 func (s *durationStats) add(d time.Duration) *durationStats {
 	s.sum += d
-
-	if s.min > d {
-		s.min = d
-	}
-
-	if s.max < d {
-		s.max = d
-	}
-
+	s.min = min(s.min, d)
+	s.max = max(s.max, d)
 	s.n++
 
 	return s

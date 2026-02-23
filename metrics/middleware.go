@@ -20,6 +20,15 @@ import (
 //
 //	cfg, err := config.LoadDefaultConfig(context.TODO(), middleware.WithClientSideMetrics())
 //
+//	// if configcache is used, this will make sure that all clients using the returned cfg as well clients created by
+//	// retrieving the newly cached cfg will also be using the same ClientSideMetricsMiddleware.
+//	cfg, err := configcache.LoadDefaultConfig(ctx, metrics.WithClientSideMetrics())
+//
+//	dynamodbClient := dynamodb.NewFromConfig(cfg) // this client will have client-side metrics.
+//
+//	cfg := configcache.MustGet(context.TODO())
+//	s3Client := s3.NewFromConfig(cfg) // this client will also have client-side metrics since it's using a cached cfg.
+//
 // See ClientSideMetricsMiddleware for what kind of metrics are populated.
 func WithClientSideMetrics(options ...Option) func(*config.LoadOptions) error {
 	return func(cfg *config.LoadOptions) error {
@@ -28,19 +37,39 @@ func WithClientSideMetrics(options ...Option) func(*config.LoadOptions) error {
 	}
 }
 
-// AddClientSideMetrics adds a ClientSideMetricsMiddleware to the config that has been created and is passed here.
+// AddClientSideMetrics adds a ClientSideMetricsMiddleware to the given config.
 //
 // Usage:
 //
 //	cfg, _ := config.LoadDefaultConfig(ctx)
 //	metrics.AddClientSideMetrics(cfg)
 //
-//	// alternatively
-//	configcache.Get(ctx, metrics.AddClientSideMetrics)
+//	// if configcache is used, this will apply the middleware only for clients created with the returned cfg.
+//	cfg, _ := configcache.Get(ctx, metrics.AddClientSideMetrics)
 //
 // See ClientSideMetricsMiddleware for what kind of metrics are populated.
+//
+// Deprecated: you don't get to customise the metrics middleware with this method. If you wish to do so, use
+// NewClientSideMetrics instead.
 func AddClientSideMetrics(cfg *aws.Config) {
 	cfg.APIOptions = append(cfg.APIOptions, ClientSideMetricsMiddleware())
+}
+
+// NewClientSideMetrics returns a function to add a ClientSideMetricsMiddleware to a given aws.Config.
+//
+// Usage:
+//
+//	cfg, _ := config.LoadDefaultConfig(ctx)
+//	metrics.NewClientSideMetrics()(&cfg)
+//
+//	// if configcache is used, this will apply the middleware only for clients created with the returned cfg.
+//	cfg, _ := configcache.Get(ctx, metrics.NewClientSideMetrics())
+//
+// See ClientSideMetricsMiddleware for what kind of metrics are populated.
+func NewClientSideMetrics(options ...Option) func(cfg *aws.Config) {
+	return func(cfg *aws.Config) {
+		cfg.APIOptions = append(cfg.APIOptions, ClientSideMetricsMiddleware(options...))
+	}
 }
 
 // ClientSideMetricsMiddleware creates a new middleware to add client-side latency metrics about the requests.
@@ -49,9 +78,6 @@ func AddClientSideMetrics(cfg *aws.Config) {
 //
 //	cfg, _ := config.LoadDefaultConfig(ctx)
 //	cfg.APIOptions = append(cfg.APIOptions, metrics.ClientSideMetricsMiddleware())
-//
-//	// alternatively
-//	metrics.AddClientSideMetrics(cfg)
 //
 // A Metrics instance must be available from context by the time the middleware receives a response. That instance's
 // counters and timings metrics will be populated with the metrics from the AWS service calls. For example, if one S3
