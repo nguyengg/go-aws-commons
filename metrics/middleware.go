@@ -118,16 +118,24 @@ func ClientSideMetricsMiddleware(options ...Option) func(stack *smithymw.Stack) 
 	}
 
 	return func(stack *smithymw.Stack) error {
+		if _, ok := stack.Deserialize.Get(middlewareId); ok {
+			return nil
+		}
+
 		return stack.Deserialize.Add(middleware, smithymw.After)
 	}
 }
+
+const (
+	middlewareId = "github.com/nguyengg/go-aws-commons/metrics/ClientSideLatencyMetrics"
+)
 
 type clientSideMetricsMiddleware struct {
 	strict bool
 }
 
 func (c clientSideMetricsMiddleware) ID() string {
-	return "ClientSideLatencyMetrics"
+	return middlewareId
 }
 
 func (c clientSideMetricsMiddleware) HandleDeserialize(ctx context.Context, in smithymw.DeserializeInput, next smithymw.DeserializeHandler) (out smithymw.DeserializeOutput, metadata smithymw.Metadata, err error) {
