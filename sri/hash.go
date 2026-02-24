@@ -41,6 +41,16 @@ type Hash interface {
 	//
 	// [Subresource Integrity]: https://developer.mozilla.org/en-US/docs/Web/Security/Subresource_Integrity
 	SumToString(b []byte) string
+
+	// SumToCustomString is a variant of SumToString that allows you to choose the separator and the encoding.
+	//
+	// SumToString is essentially `SumToCustomString("-", base64.RawStdEncoding.EncodeToString)`; SumToCustomString is
+	// useful if you need a different encoding and separator like:
+	//
+	//		SumToCustomString(":", hex.Encoding) // sha256:68e656b2...
+	//
+	// If you need even more customised formatting, just call [hash.Hash.Sum] and Name to do your own.
+	SumToCustomString(b []byte, sep string, encoder func([]byte) string) string
 }
 
 // NewSha1 returns a new Hash using sha1 as the hash function.
@@ -97,9 +107,11 @@ var customHashers sync.Map
 
 // Register can be used to register additional hash functions not supported out of the box.
 //
-// The name should not include the delimiter "-".
-func Register(name string, hashNewFn func() hash.Hash) {
-	customHashers.Store(name, hashNewFn())
+// The name should not include the delimiter "-". Returns a named Hash that uses the given name and hash.Hash.
+func Register(name string, hashNewFn func() hash.Hash) Hash {
+	h := hashNewFn()
+	customHashers.Store(name, h)
+	return &hasher{Hash: h, name: name}
 }
 
 // hasher implements Hash.
@@ -114,6 +126,10 @@ func (h *hasher) Name() string {
 
 func (h *hasher) SumToString(b []byte) string {
 	return h.name + "-" + base64.RawStdEncoding.EncodeToString(h.Sum(b))
+}
+
+func (h *hasher) SumToCustomString(b []byte, sep string, encoder func([]byte) string) string {
+	return h.name + sep + encoder(h.Sum(b))
 }
 
 var _ Hash = (*hasher)(nil)

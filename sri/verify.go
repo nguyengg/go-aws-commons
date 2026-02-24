@@ -110,6 +110,10 @@ func (v *verifier) SumToString(b []byte) string {
 	return v.hashes[0].SumToString(b)
 }
 
+func (v *verifier) SumToCustomString(b []byte, sep string, encoder func([]byte) string) string {
+	return v.hashes[0].SumToCustomString(b, sep, encoder)
+}
+
 func (v *verifier) SumAndVerify(b []byte) bool {
 	h := v.hashes[0]
 	d := h.SumToString(b)
