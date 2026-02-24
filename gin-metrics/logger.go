@@ -59,6 +59,8 @@ func Logger(options ...func(cfg *LoggerConfig)) gin.HandlerFunc {
 			String("userAgent", c.Request.UserAgent())
 
 		defer func() {
+			w := c.Writer
+
 			if !cfg.DisableRecovery {
 				if r := recover(); r != nil {
 					m.Panicked()
@@ -84,7 +86,25 @@ func Logger(options ...func(cfg *LoggerConfig)) gin.HandlerFunc {
 				m.Error(err)
 			}
 
-			w := c.Writer
+			if c.IsAborted() && !w.Written() && !cfg.DisableAbortJSONWrapping {
+				status := w.Status()
+				if status == 0 {
+					// 502 Bad Gateway is used if user didn't specify a specific status.
+					status = http.StatusBadGateway
+				}
+
+				if err := c.Errors.Last(); err != nil && err.IsType(gin.ErrorTypePublic) {
+					c.AbortWithStatusJSON(status, gin.H{
+						"status":  status,
+						"message": err.Err.Error(),
+					})
+				} else {
+					c.AbortWithStatusJSON(status, gin.H{
+						"status":  status,
+						"message": http.StatusText(status),
+					})
+				}
+			}
 
 			m.
 				Int64("status", int64(w.Status())).
@@ -105,6 +125,21 @@ type LoggerConfig struct {
 	//
 	// Combine both [gin.LoggerConfig.SkipPath] and [gin.LoggerConfig.Skip].
 	Skip func(ctx context.Context, req *http.Request) bool
+
+	// DisableAbortJSONWrapping, if specified, disable wrapping aborted requests' responses in JSON.
+	//
+	// Inspired by https://gin-gonic.com/en/docs/examples/error-handling-middleware/, by default, if the request
+	// has been aborted AND the response body has not been written manually, the middleware will render some
+	// meaningful JSON content to user such as:
+	//
+	//	{
+	//		"status": 500|400|...,
+	//		"message": "message describing the error"
+	//	}
+	//
+	// If the last error type is gin.ErrorTypePublic, its string content will become the "message" attribute. If the
+	// status has not been set, 500 is used.
+	DisableAbortJSONWrapping bool
 
 	// DisableRecovery, if specified, disable gin.Recovery replacement.
 	DisableRecovery bool
