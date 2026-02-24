@@ -58,7 +58,7 @@ var ErrAborted = errors.New("writer already aborted")
 
 // Writer uses either a single PutObject or multipart upload to upload content to S3.
 //
-// Writer is implemented as a buffered partWriter. Close must be called to drain the write buffer and complete the
+// Writer is implemented as a buffered part writer. Close must be called to drain the write buffer and complete the
 // multipart upload if multipart upload was used; the return value will be an MultipartUploadError instance in this
 // case. If the number of bytes to upload is less than MinPartSize, a single PutObject is used.
 //
@@ -87,10 +87,16 @@ type Writer interface {
 
 	// Abort will explicitly call AbortMultipartUpload and returns the response.
 	//
-	// If multipart upload has not been started, two nil values will be returned.
+	// If multipart upload has not been started, two nil values will be returned. By default, a false
+	// Options.DisableAbortOnError will use the ctx passed into New to attempt the AbortMultipartUpload if there are
+	// any errors uploading to S3. However, if the context is canceled prior to the abort attempt, the attempt will
+	// surely fail. As a result, Abort can be explicitly called with an uncanceled context in case user can detect
+	// failure to do so themselves. Additionally, consider putting a lifecycle policy on the bucket to delete
+	// multipart upload attempts of certain age. See
+	// https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-and-other-bucket-config.html.
 	//
 	// Subsequent io calls will return ErrAborted.
-	Abort() (*s3.AbortMultipartUploadOutput, error)
+	Abort(ctx context.Context) (*s3.AbortMultipartUploadOutput, error)
 
 	// GetCreateMultipartUploadOutput returns the response of the successful CreateMultipartUpload call for inspection.
 	//
@@ -128,6 +134,10 @@ type Options struct {
 	PartSize int64
 
 	// DisableAbortOnError controls whether AbortMultipartUpload is automatically called on error.
+	//
+	// Note: because the abort attempt uses the same context passed to New, the abort attempt may fail if the
+	// context has already been canceled. To force cancellation, call Writer.Abort explicitly passing an uncanceled
+	// context instead.
 	DisableAbortOnError bool
 
 	// internal. must use opaque func(*Options) to customise these.
@@ -145,8 +155,9 @@ type WriterClient interface {
 
 // New returns a Writer given the PutObject input parameters.
 //
-// Unlike s3/manager, you do not pass the content being uploaded via [s3.PutObjectInput.Body] here. Instead, use the
-// returned Writer as either an io.Writer or an io.ReaderFrom.
+// Unlike [feature/s3/manager](https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/feature/s3/manager), you do not pass the
+// content being uploaded via [s3.PutObjectInput.Body] here. Instead, use the returned Writer as either an io.Writer or
+// an io.ReaderFrom.
 //
 // New will only return a non-nil error if there are invalid options.
 func New(ctx context.Context, client WriterClient, input *s3.PutObjectInput, optFns ...func(*Options)) (Writer, error) {
@@ -163,15 +174,15 @@ func New(ctx context.Context, client WriterClient, input *s3.PutObjectInput, opt
 	}
 
 	if opts.Concurrency <= 0 {
-		return nil, fmt.Errorf("concurrency (%d) must be a positive integer", opts.Concurrency)
+		return nil, fmt.Errorf("s3writer: concurrency (%d) must be a positive integer", opts.Concurrency)
 	}
 	if opts.PartSize < MinPartSize {
-		return nil, fmt.Errorf("partSize (%d) cannot be less than minimum (%d)", opts.PartSize, MinPartSize)
+		return nil, fmt.Errorf("s3writer: partSize (%d) cannot be less than minimum (%d)", opts.PartSize, MinPartSize)
 	}
 
 	var limiter *rate.Limiter
 	if opts.MaxBytesInSecond < 0 {
-		return nil, fmt.Errorf("mxBytesInSecond (%d) must be a non-negative integer", opts.MaxBytesInSecond)
+		return nil, fmt.Errorf("s3writer: mxBytesInSecond (%d) must be a non-negative integer", opts.MaxBytesInSecond)
 	} else if opts.MaxBytesInSecond == 0 {
 		limiter = rate.NewLimiter(rate.Inf, 0)
 	} else {
@@ -273,7 +284,7 @@ func (w *writer) Close() (err error) {
 	return nil
 }
 
-func (w *writer) Abort() (*s3.AbortMultipartUploadOutput, error) {
+func (w *writer) Abort(ctx context.Context) (*s3.AbortMultipartUploadOutput, error) {
 	if errors.Is(w.err, ErrClosed) {
 		return nil, w.err
 	}
@@ -285,7 +296,7 @@ func (w *writer) Abort() (*s3.AbortMultipartUploadOutput, error) {
 	// error from closing the executor is ignored so that we don't end up accidentally aborting the upload.
 	_ = w.ex.Close()
 
-	if w.abortMultipartUploadOutput, w.err = w.client.AbortMultipartUpload(context.Background(), &s3.AbortMultipartUploadInput{
+	if w.abortMultipartUploadOutput, w.err = w.client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
 		Bucket:              w.input.Bucket,
 		Key:                 w.input.Key,
 		UploadId:            w.uploadId,
@@ -328,7 +339,7 @@ func (w *writer) write(src io.Reader, flush bool) (written int64, err error) {
 					break
 				}
 
-				return written, fmt.Errorf("buffer write content error: %w", err)
+				return written, fmt.Errorf("s3writer: buffer write content error: %w", err)
 			} else if n == 0 {
 				break
 			}
@@ -345,7 +356,7 @@ func (w *writer) write(src io.Reader, flush bool) (written int64, err error) {
 
 		if w.uploadId == nil {
 			if err = w.createMultipartUpload(ctx); err != nil {
-				return written, fmt.Errorf("create multipart upload error: %w", err)
+				return written, fmt.Errorf("s3writer: create multipart upload error: %w", err)
 			}
 		}
 
@@ -365,12 +376,12 @@ func (w *writer) write(src io.Reader, flush bool) (written int64, err error) {
 			defer wg.Done()
 
 			if err = w.limiter.WaitN(ctx, len(data)); err != nil {
-				cancel(fmt.Errorf("upload part %d rate limit error: %w", w.partNumber, err))
+				cancel(fmt.Errorf("s3writer: upload part %d rate limit error: %w", w.partNumber, err))
 			} else if err = w.uploadPart(ctx, partNumber, data); err != nil {
-				cancel(fmt.Errorf("upload part %d error: %w", w.partNumber, err))
+				cancel(fmt.Errorf("s3writer: upload part %d error: %w", w.partNumber, err))
 			}
 		}); err != nil {
-			err = fmt.Errorf("submit upload task error: %w", err)
+			err = fmt.Errorf("s3writer: submit upload task error: %w", err)
 			cancel(err)
 			return written, err
 		}
@@ -399,7 +410,7 @@ func (w *writer) write(src io.Reader, flush bool) (written int64, err error) {
 
 	if w.uploadId == nil {
 		if written, err = n, w.putObject(w.ctx, w.buf.Bytes()); err != nil {
-			return 0, fmt.Errorf("putObject error: %w", err)
+			return 0, fmt.Errorf("s3writer: putObject error: %w", err)
 		}
 
 		return written, nil
@@ -409,11 +420,11 @@ func (w *writer) write(src io.Reader, flush bool) (written int64, err error) {
 	w.partNumber++
 
 	if err = w.uploadPart(w.ctx, w.partNumber, w.buf.Bytes()); err != nil {
-		return written, fmt.Errorf("upload final part %d error: %w", w.partNumber, err)
+		return written, fmt.Errorf("s3writer: upload final part %d error: %w", w.partNumber, err)
 	}
 
 	if err = w.completeMultipartUpload(w.ctx); err != nil {
-		return written, fmt.Errorf("complete multipart upload error: %w", err)
+		return written, fmt.Errorf("s3writer: complete multipart upload error: %w", err)
 	}
 
 	return written, nil

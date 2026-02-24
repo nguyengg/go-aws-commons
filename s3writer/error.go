@@ -24,13 +24,13 @@ func (e MultipartUploadError) Unwrap() error {
 func (e MultipartUploadError) Error() string {
 	switch e.Abort {
 	case AbortNotAttempted:
-		return fmt.Sprintf("multipart upload error, upload Id: %s (abort not attempted), cause: %v", e.UploadID, e.Err)
+		return fmt.Sprintf("s3writer: multipart upload error, upload Id: %s (abort not attempted), cause: %v", e.UploadID, e.Err)
 	case AbortSuccess:
-		return fmt.Sprintf("multipart upload error, upload Id: %s (abort succeeds), cause: %v", e.UploadID, e.Err)
+		return fmt.Sprintf("s3writer: multipart upload error, upload Id: %s (abort succeeds), cause: %v", e.UploadID, e.Err)
 	case AbortFailure:
-		return fmt.Sprintf("multipart upload error, upload Id: %s (abort fails, cause: %v), cause: %v", e.UploadID, e.AbortErr, e.Err)
+		return fmt.Sprintf("s3writer: multipart upload error, upload Id: %s (abort fails, cause: %v), cause: %v", e.UploadID, e.AbortErr, e.Err)
 	default:
-		return fmt.Sprintf("multipart upload error, upload Id: %s, cause: %v", e.UploadID, e.Err)
+		return fmt.Sprintf("s3writer: multipart upload error, upload Id: %s, cause: %v", e.UploadID, e.Err)
 	}
 }
 
