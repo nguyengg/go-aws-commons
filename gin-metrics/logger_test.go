@@ -24,8 +24,9 @@ func TestLogger(t *testing.T) {
 		logger := slog.New(slog.NewJSONHandler(&lbuf, nil))
 
 		r := gin.New()
-		r.Use(Logger(WithRequestId(), WithRecovery(), WithCustomMetrics(func(c *gin.Context) *metrics.Metrics {
-			return metrics.New(metrics.LogJSON(&mbuf))
+		r.Use(Logger(WithRequestId(), WithCustomMetrics(func(c *gin.Context) *metrics.Metrics {
+			f := &metrics.Factory{Logger: metrics.JSONLogger{Out: &mbuf}}
+			return f.New()
 		}), func(cfg *LoggerConfig) {
 			cfg.Parent = logger
 			cfg.requestId = func() string {
@@ -54,7 +55,7 @@ func TestLogger(t *testing.T) {
   "counters": { "fault": 0, "panicked": 0, "userDidSomethingCool": 1 },
   "endTime": "Sat, 01 Jan 2000 00:00:03 UTC",
   "ip": "",
-  "latency": "3s",
+  "duration": "3s",
   "method": "GET",
   "path": "/ping",
   "referrer": "",
