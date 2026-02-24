@@ -4,19 +4,19 @@
 
 This module provides implementations of `io.ReadSeeker`, `io.ReaderAt`, and `io.WriterTo` for S3 downloading needs.
 
-Get with:
+**Note:** [feature/s3/transfermanager](https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager)
+(replacing [feature/s3/manager](https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/feature/s3/manager)) is excellent (and
+probably better-tested with the resources available at Amazon) than my library so give that a shot first.
 
 ```shell
 go get github.com/nguyengg/go-aws-commons/s3reader
 ```
-
 
 ```go
 package main
 
 import (
 	"context"
-	"io"
 	"log"
 	"os"
 	"os/signal"
@@ -24,9 +24,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/krolaw/zipstream"
 	"github.com/nguyengg/go-aws-commons/s3reader"
-	"github.com/nguyengg/xy3/zipper"
 )
 
 func main() {
@@ -44,46 +42,19 @@ func main() {
 	// S3 object however I want.
 	// if in interactive mode, s3reader.WithProgressBar will show a progress bar displaying progress.
 	// otherwise, use s3reader.WithProgressLogger instead.
-	reader, err := s3reader.New(ctx, client, &s3.GetObjectInput{
+	r, err := s3reader.New(ctx, client, &s3.GetObjectInput{
 		Bucket: aws.String("my-bucket"),
 		Key:    aws.String("my-key"),
 	}, s3reader.WithProgressBar())
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer r.Close() // close will terminate the goroutine pool but is not strictly needed.
 
-	// for example, if reader is a ZIP file, I can use xy3 to extract the zip file headers
-	// without reading the whole file.
-	cd, err := zipper.NewCDScanner(reader, reader.Size())
-	if err != nil {
-		log.Fatal(err)
-	}
-	for fh := range cd.All() {
-		// fh is a zipper.CDFileHeader which embeds zip.FileHeader.
-		// in theory, with the offset, I should be able to use reader.ReadAt to find
-		// the local file header and perform parallel decompression on each file in
-		// the archive.
-		log.Printf("%s can be found at offset=%d", fh.Name, fh.Offset)
-	}
-
-	// In this example, zipstream is used instead to stream the entire file.
-	// I do need to either reset the reader with Seek, or create a new one using Reopen.
-	for zr := zipstream.NewReader(reader.Reopen()); ; {
-		fh, err := zr.Next()
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		// zr implements Reader as well so extract the file like this.
-		f, err := os.Create(fh.Name)
-		if err == nil {
-			_, err = io.Copy(f, zr)
-			_ = f.Close()
-		}
-		if err != nil {
-			log.Fatal(f)
-		}
-	}
+	// if writing to file, can also use https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager.
+	dst, _ := os.CreateTemp("", "")
+	_, _ = r.WriteTo(dst)
+	_ = dst.Close()
 }
 
 ```

@@ -185,7 +185,7 @@ func New(ctx context.Context, client GetAndHeadObjectClient, input *s3.GetObject
 		VersionId:            input.VersionId,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("determine file size error: %w", err)
+		return nil, fmt.Errorf("s3reader: headObject error: %w", err)
 	}
 
 	return NewReaderWithSize(ctx, client, input, aws.ToInt64(headObjectOutput.ContentLength), optFns...)
@@ -213,21 +213,21 @@ func NewReaderWithSize(ctx context.Context, client GetObjectClient, input *s3.Ge
 	}
 
 	if opts.Threshold <= 0 {
-		return nil, fmt.Errorf("threshold (%d) must be a positive integer", opts.Threshold)
+		return nil, fmt.Errorf("s3reader: threshold (%d) must be a positive integer", opts.Threshold)
 	}
 	if opts.Concurrency <= 0 {
-		return nil, fmt.Errorf("concurrency (%d) must be a positive integer", opts.Concurrency)
+		return nil, fmt.Errorf("s3reader: concurrency (%d) must be a positive integer", opts.Concurrency)
 	}
 	if opts.PartSize <= 0 && opts.Concurrency != 1 {
-		return nil, fmt.Errorf("partSize (%d) must be a positive integer", opts.PartSize)
+		return nil, fmt.Errorf("s3reader: partSize (%d) must be a positive integer", opts.PartSize)
 	}
 	if opts.BufferSize < 0 {
-		return nil, fmt.Errorf("bufferSize (%d) must be a non-negative integer", opts.PartSize)
+		return nil, fmt.Errorf("s3reader: bufferSize (%d) must be a non-negative integer", opts.PartSize)
 	}
 
 	var limiter *rate.Limiter
 	if opts.MaxBytesInSecond < 0 {
-		return nil, fmt.Errorf("mxBytesInSecond (%d) must be a non-negative integer", opts.MaxBytesInSecond)
+		return nil, fmt.Errorf("s3reader: mxBytesInSecond (%d) must be a non-negative integer", opts.MaxBytesInSecond)
 	} else if opts.MaxBytesInSecond == 0 {
 		limiter = rate.NewLimiter(rate.Inf, 0)
 	} else {
@@ -425,13 +425,13 @@ func (r *reader) read(dst io.Writer, rangeStart, rangeEnd int64) (int64, error) 
 		input := copyInput(r.input, rangeStart, rangeEnd)
 		getObjectOutput, err := r.client.GetObject(r.ctx, input)
 		if err != nil {
-			return 0, fmt.Errorf("getObject (%s) error: %w", aws.ToString(input.Range), err)
+			return 0, fmt.Errorf("s3reader: getObject (%s) error: %w", aws.ToString(input.Range), err)
 		}
 
 		written, err := io.Copy(dst, getObjectOutput.Body)
 		_ = getObjectOutput.Body.Close()
 		if err != nil {
-			return written, fmt.Errorf("copy getObject (%s) response error: %w", aws.ToString(input.Range), err)
+			return written, fmt.Errorf("s3reader: copy getObject (%s) response error: %w", aws.ToString(input.Range), err)
 		}
 		return written, nil
 	}
@@ -460,25 +460,25 @@ func (r *reader) read(dst io.Writer, rangeStart, rangeEnd int64) (int64, error) 
 			} else {
 				input = copyInput(r.input, startRange, startRange+partSize-1)
 				if err := r.limiter.WaitN(ctx, int(partSize)); err != nil {
-					cancel(fmt.Errorf("getObject (part=%d/%d, %s) rate limit error: %w", partNumber, lastPart, aws.ToString(input.Range), err))
+					cancel(fmt.Errorf("s3reader: getObject (part=%d/%d, %s) rate limit error: %w", partNumber, lastPart, aws.ToString(input.Range), err))
 					return
 				}
 			}
 
 			output, err := r.client.GetObject(ctx, input)
 			if err != nil {
-				cancel(fmt.Errorf("getObject (part=%d/%d, %s) error: %w", partNumber, lastPart, aws.ToString(input.Range), err))
+				cancel(fmt.Errorf("s3reader: getObject (part=%d/%d, %s) error: %w", partNumber, lastPart, aws.ToString(input.Range), err))
 				return
 			}
 
 			err = w.write(partNumber, output.Body)
 			_ = output.Body.Close()
 			if err != nil {
-				cancel(fmt.Errorf("copy getObject (part=%d/%d, %s) response error: %w", partNumber, lastPart, aws.ToString(input.Range), err))
+				cancel(fmt.Errorf("s3reader: copy getObject (part=%d/%d, %s) response error: %w", partNumber, lastPart, aws.ToString(input.Range), err))
 				return
 			}
 		}); err != nil {
-			err = fmt.Errorf("submit task error: %w", err)
+			err = fmt.Errorf("s3reader: submit task error: %w", err)
 			cancel(err)
 			return w.written, err
 		}
@@ -496,7 +496,7 @@ func (r *reader) read(dst io.Writer, rangeStart, rangeEnd int64) (int64, error) 
 		return w.written, context.Cause(ctx)
 	case <-done:
 		if err := w.drain(); err != nil {
-			return w.written, fmt.Errorf("drain buffer error: %w", err)
+			return w.written, fmt.Errorf("s3reader: drain buffer error: %w", err)
 		}
 
 		return w.written, nil
