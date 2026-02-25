@@ -17,7 +17,7 @@ func Test_IfMatchMatches(t *testing.T) {
 		matches         bool
 	}{
 		{
-			name:            "single value",
+			name:            "single v",
 			ifMatchHeader:   []string{`"1234"`},
 			strongETagValue: `"1234"`,
 			matches:         true,
@@ -35,7 +35,7 @@ func Test_IfMatchMatches(t *testing.T) {
 			matches:         true,
 		},
 		{
-			name:            "does not match against single value",
+			name:            "does not match against single v",
 			ifMatchHeader:   []string{`"3456"`},
 			strongETagValue: `"1234"`,
 			matches:         false,

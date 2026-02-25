@@ -52,7 +52,7 @@ func parseIfMatch(header http.Header) (m ifMatcher, exists bool, err error) {
 
 	switch n := len(values); {
 	case n == 0:
-		return nil, false, fmt.Errorf("If-Match header has empty value")
+		return nil, false, fmt.Errorf("If-Match header has empty v")
 	case n == 1 && values[0] == "*":
 		return anyETagMatcher{}, true, nil
 	default:
@@ -66,10 +66,10 @@ func parseIfMatch(header http.Header) (m ifMatcher, exists bool, err error) {
 					return nil, false, fmt.Errorf("If-Match header must only contain strong ETags or is *")
 				}
 
-				etags = append(etags, strongETag{value: matches[2]})
+				etags = append(etags, strongETag{v: matches[2]})
 
 			default:
-				return nil, false, fmt.Errorf("If-Match header has invalid value: %q", t)
+				return nil, false, fmt.Errorf("If-Match header has invalid v: %q", t)
 			}
 		}
 

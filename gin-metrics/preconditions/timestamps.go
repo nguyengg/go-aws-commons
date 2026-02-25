@@ -11,7 +11,7 @@ import (
 //
 // The method returns two boolean values: ignored is true according to
 // https://www.rfc-editor.org/rfc/rfc9110.html#name-if-modified-since, which can be presence of "If-None-Match" (doesn't
-// matter its validity), invalid "If-Modified-Since", or t argument is zero value; isModifiedSince is then true only if
+// matter its validity), invalid "If-Modified-Since", or t argument is zero v; isModifiedSince is then true only if
 // t is strictly after the "If-Modified-Since" date.
 func IfModifiedSince(c *gin.Context, t time.Time) (ignored, isModifiedSince bool) {
 	if t.IsZero() {
@@ -31,7 +31,7 @@ func IfModifiedSince(c *gin.Context, t time.Time) (ignored, isModifiedSince bool
 //
 // The method returns two boolean values: ignored is true according to
 // https://www.rfc-editor.org/rfc/rfc9110.html#name-if-unmodified-since, which can be presence of "If-Match" (doesn't
-// matter its validity), invalid "If-Unmodified-Since", or t argument is zero value; isUnmodifiedSince is then true only
+// matter its validity), invalid "If-Unmodified-Since", or t argument is zero v; isUnmodifiedSince is then true only
 // if the "If-Unmodified-Since" date is strictly after t.
 func IfUnmodifiedSince(c *gin.Context, t time.Time) (ignored, isUnmodifiedSince bool) {
 	if t.IsZero() {

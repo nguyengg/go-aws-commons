@@ -52,7 +52,7 @@ func parseIfNoneMatch(header http.Header) (m ifNoneMatcher, exists bool, err err
 
 	switch n := len(values); {
 	case n == 0:
-		return nil, false, fmt.Errorf("If-None-Match header has empty value")
+		return nil, false, fmt.Errorf("If-None-Match header has empty v")
 	case n == 1 && values[0] == "*":
 		return anyETagNoneMatcher{}, true, nil
 	default:
@@ -63,13 +63,13 @@ func parseIfNoneMatch(header http.Header) (m ifNoneMatcher, exists bool, err err
 
 			case len(matches) == 3:
 				if matches[1] == "W/" {
-					etags = append(etags, weakETag{value: matches[2]})
+					etags = append(etags, weakETag{v: matches[2]})
 				} else {
-					etags = append(etags, strongETag{value: matches[2]})
+					etags = append(etags, strongETag{v: matches[2]})
 				}
 
 			default:
-				return nil, false, fmt.Errorf("If-None-Match header has invalid value: %q", t)
+				return nil, false, fmt.Errorf("If-None-Match header has invalid v: %q", t)
 			}
 		}
 
