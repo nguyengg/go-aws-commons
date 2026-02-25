@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/nguyengg/go-aws-commons/gin-metrics/preconditions"
 )
 
 // Headers sets the caching headers (Cache-Control, ETag, and/or Last-Modified) retrieved from the given obj.
@@ -19,8 +18,8 @@ func Headers(c *gin.Context, obj any) {
 	}
 
 	if v, ok := obj.(HasETag); ok {
-		if t := v.GetETag(); t != nil {
-			c.Header("ETag", t.String())
+		if s := v.GetETag(); s != "" {
+			c.Header("ETag", s)
 		}
 	}
 
@@ -39,7 +38,13 @@ type HasCacheControl interface {
 
 // HasETag implements GetETag for objects that should be returned with response header "ETag".
 type HasETag interface {
-	GetETag() preconditions.ETag
+	// GetETag should return a valid ETag, which is in format "<etag_value>" (with quotes) or W/"<etag_value>" for weak
+	// ETags.
+	//
+	// See https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/ETag.
+	//
+	// Note: Headers does not care if the returned value is valid or not, just that it's not an empty string.
+	GetETag() string
 }
 
 // HasLastModified implements GetLastModified for objects that should be returned with response header "Last-Modified".
