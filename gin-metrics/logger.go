@@ -59,8 +59,6 @@ func Logger(options ...func(cfg *LoggerConfig)) gin.HandlerFunc {
 			String("userAgent", c.Request.UserAgent())
 
 		defer func() {
-			w := c.Writer
-
 			if !cfg.DisableRecovery {
 				if r := recover(); r != nil {
 					m.Panicked()
@@ -72,7 +70,14 @@ func Logger(options ...func(cfg *LoggerConfig)) gin.HandlerFunc {
 						m.Error(eris.Wrapf(fmt.Errorf("%+v", v), "recover non-error %T: %#v", v, v))
 					}
 
-					c.AbortWithStatus(http.StatusInternalServerError)
+					if cfg.abortInJson && !c.Writer.Written() {
+						c.JSON(http.StatusInternalServerError, gin.H{
+							"status":  http.StatusInternalServerError,
+							"message": http.StatusText(http.StatusInternalServerError),
+						})
+					} else {
+						c.Abort()
+					}
 				}
 			}
 
@@ -86,24 +91,18 @@ func Logger(options ...func(cfg *LoggerConfig)) gin.HandlerFunc {
 				m.Error(err)
 			}
 
-			if c.IsAborted() && !w.Written() && !cfg.DisableAbortJSONWrapping {
+			w := c.Writer
+
+			if c.IsAborted() && cfg.abortInJson && !w.Written() {
 				status := w.Status()
 				if status == 0 {
-					// 502 Bad Gateway is used if user didn't specify a specific status.
-					status = http.StatusBadGateway
+					status = http.StatusInternalServerError
 				}
 
-				if err := c.Errors.Last(); err != nil && err.IsType(gin.ErrorTypePublic) {
-					c.AbortWithStatusJSON(status, gin.H{
-						"status":  status,
-						"message": err.Err.Error(),
-					})
-				} else {
-					c.AbortWithStatusJSON(status, gin.H{
-						"status":  status,
-						"message": http.StatusText(status),
-					})
-				}
+				c.JSON(status, gin.H{
+					"status":  status,
+					"message": http.StatusText(status),
+				})
 			}
 
 			m.
@@ -126,21 +125,6 @@ type LoggerConfig struct {
 	// Combine both [gin.LoggerConfig.SkipPath] and [gin.LoggerConfig.Skip].
 	Skip func(ctx context.Context, req *http.Request) bool
 
-	// DisableAbortJSONWrapping, if specified, disable wrapping aborted requests' responses in JSON.
-	//
-	// Inspired by https://gin-gonic.com/en/docs/examples/error-handling-middleware/, by default, if the request
-	// has been aborted AND the response body has not been written manually, the middleware will render some
-	// meaningful JSON content to user such as:
-	//
-	//	{
-	//		"status": 500|400|...,
-	//		"message": "message describing the error"
-	//	}
-	//
-	// If the last error type is gin.ErrorTypePublic, its string content will become the "message" attribute. If the
-	// status has not been set, 500 is used.
-	DisableAbortJSONWrapping bool
-
 	// DisableRecovery, if specified, disable gin.Recovery replacement.
 	DisableRecovery bool
 
@@ -149,8 +133,9 @@ type LoggerConfig struct {
 	// If nil, slog.Default will be used. The child loggers can be retrieved with Slog.
 	Parent *slog.Logger
 
-	newMetrics func(c *gin.Context) *metrics.Metrics
-	requestId  func() string
+	abortInJson bool
+	newMetrics  func(c *gin.Context) *metrics.Metrics
+	requestId   func() string
 }
 
 // SkipPath is a convenient method to replace LoggerConfig.Skip with one that will skip logging for any request to the
@@ -179,6 +164,31 @@ func SkipPath(paths ...string) func(cfg *LoggerConfig) {
 func WithCustomMetrics(fn func(c *gin.Context) *metrics.Metrics) func(cfg *LoggerConfig) {
 	return func(cfg *LoggerConfig) {
 		cfg.newMetrics = fn
+	}
+}
+
+// WithAbortInJSON supplants an aborted ([gin.Context.IsAborted] request with a JSON response if response body has not
+// been written ([gin.ResponseWriter.Written]).
+//
+// Inspired by https://gin-gonic.com/en/docs/examples/error-handling-middleware/, this makes the most sense in API
+// context where the response is in JSON, but sometimes you may forget to write JSON content, or another middleware has
+// aborted the request but not written any content. The JSON response will be in this format:
+//
+//	{
+//		"status": 400 | 500 | ...
+//		"message": "Bad Request" | "Internal Server Error" | ...
+//	}
+//
+// The status comes from [gin.ResponseWriter.Status]; if none was given, 500 will be used as default since the request
+// was aborted.
+//
+// Usage:
+//
+//	r := gin.New()
+//	r.User(ginmetrics.Logger(ginmetrics.WithAbortInJSON())
+func WithAbortInJSON() func(cfg *LoggerConfig) {
+	return func(cfg *LoggerConfig) {
+		cfg.abortInJson = true
 	}
 }
 
