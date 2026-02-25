@@ -7,18 +7,34 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// AbortWithStatusMessage calls [gin.Context.AbortWithStatusJSON] writing code as "status" and the formatted string as
-// "message".
+// AbortWithError aborts the request with JSON response containing http.StatusInternalServerError as status and
+// default http.StatusText as message, then passes [gin.Context.Error] the given error and returning its result.
+//
+// Use this when your handler runs into a server-fault error that should abort the request, you want to capture and log
+// the error, but you do not want to report the details of that error to user. Feel free to use fmt.Errorf to wrap
+// whatever additional information is needed here.
+func AbortWithError(c *gin.Context, err error) *gin.Error {
+	c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+		"status":  http.StatusInternalServerError,
+		"message": http.StatusText(http.StatusInternalServerError),
+	})
+	return c.Error(err)
+}
+
+// AbortWithStatusf aborts the request with JSON response containing given code as status and the formatted string as
+// message.
 //
 // Note that the JSON body should not contain sensitive information that may help an attacker understand your system.
-func AbortWithStatusMessage(c *gin.Context, code int, format string, a ...any) {
+// fmt.Sprintf is used to format the "message" so don't use %w verb.
+func AbortWithStatusf(c *gin.Context, code int, format string, a ...any) {
+	// https://www.jetbrains.com/help/go/2023.3/formatting-strings.html wants these methods' names to end with f.
 	c.AbortWithStatusJSON(code, gin.H{
 		"status":  code,
 		"message": fmt.Sprintf(format, a...),
 	})
 }
 
-// AbortWithStatus is a variant of AbortWithStatusMessage that supplants a default http.StatusText message.
+// AbortWithStatus is a variant of AbortWithStatusf that supplants a default http.StatusText message.
 //
 // Use this if you just want to use the default text for a specific status code, such as http.StatusForbidden
 // ("Forbidden") or http.StatusUnauthorized ("Unauthorized").
@@ -35,26 +51,14 @@ func AbortWithStatus(c *gin.Context, code int) {
 	}
 }
 
-// AbortWithError aborts the request with http.StatusInternalServerError and default text, then calls
-// [gin.Context.Error] passing the given error.
-//
-// Use this when your handler runs into a server-fault error that should abort the request, you want to capture and log
-// the error, but you do not want to report the details of that error to user. Feel free to use fmt.Errorf to wrap
-// whatever additional information is needed here.
-func AbortWithError(c *gin.Context, err error) *gin.Error {
-	c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-		"status":  http.StatusInternalServerError,
-		"message": http.StatusText(http.StatusInternalServerError),
-	})
-	return c.Error(err)
-}
-
-// BadRequest is a variant of AbortWithStatusMessage for http.StatusBadRequest.
+// BadRequestf is a variant of AbortWithStatusf for http.StatusBadRequest specifically.
 //
 // Note that because the message will be returned to user, it MUST NOT contain sensitive information that may be used to
-// craft further attacks to your system. As a reason, be mindful what error is being printed here. fmt.Sprintf is used
-// so "%w" will not work.
-func BadRequest(c *gin.Context, format string, a ...any) {
+// craft further attacks to your system. As a reason, be mindful what error is being printed here.
+//
+// fmt.Sprintf is used to format the "message" so don't use %w verb.
+func BadRequestf(c *gin.Context, format string, a ...any) {
+	// https://www.jetbrains.com/help/go/2023.3/formatting-strings.html wants these methods' names to end with f.
 	c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 		"status":  http.StatusBadRequest,
 		"message": fmt.Sprintf(format, a...),
