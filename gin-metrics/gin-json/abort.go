@@ -51,7 +51,7 @@ func BadRequest(c *gin.Context, format string, a ...any) {
 //
 // Use this when your handler runs into a server-fault error that should abort the request, you want to capture and log
 // the error, but you do not want to report the details of that error to user. Feel free to wrap whatever error
-// encountered here.
+// encountered here with "%w" since fmt.Errorf is being used.
 func Errorf(c *gin.Context, format string, a ...any) *gin.Error {
 	c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
 		"status":  http.StatusInternalServerError,
