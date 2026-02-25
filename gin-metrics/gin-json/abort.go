@@ -35,27 +35,28 @@ func AbortWithStatus(c *gin.Context, code int) {
 	}
 }
 
+// AbortWithError aborts the request with http.StatusInternalServerError and default text, then calls
+// [gin.Context.Error] passing the given error.
+//
+// Use this when your handler runs into a server-fault error that should abort the request, you want to capture and log
+// the error, but you do not want to report the details of that error to user. Feel free to use fmt.Errorf to wrap
+// whatever additional information is needed here.
+func AbortWithError(c *gin.Context, err error) *gin.Error {
+	c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+		"status":  http.StatusInternalServerError,
+		"message": http.StatusText(http.StatusInternalServerError),
+	})
+	return c.Error(err)
+}
+
 // BadRequest is a variant of AbortWithStatusMessage for http.StatusBadRequest.
 //
 // Note that because the message will be returned to user, it MUST NOT contain sensitive information that may be used to
-// craft further attacks to your system. As a reason, be mindful what error is being wrapped here.
+// craft further attacks to your system. As a reason, be mindful what error is being printed here. fmt.Sprintf is used
+// so "%w" will not work.
 func BadRequest(c *gin.Context, format string, a ...any) {
 	c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 		"status":  http.StatusBadRequest,
 		"message": fmt.Sprintf(format, a...),
 	})
-}
-
-// Errorf aborts the request with http.StatusInternalServerError and default text, then calls [gin.Context.Error] using
-// the formatted string.
-//
-// Use this when your handler runs into a server-fault error that should abort the request, you want to capture and log
-// the error, but you do not want to report the details of that error to user. Feel free to wrap whatever error
-// encountered here with "%w" since fmt.Errorf is being used.
-func Errorf(c *gin.Context, format string, a ...any) *gin.Error {
-	c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-		"status":  http.StatusInternalServerError,
-		"message": http.StatusText(http.StatusInternalServerError),
-	})
-	return c.Error(fmt.Errorf(format, a...))
 }
