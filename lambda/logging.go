@@ -1,48 +1,70 @@
 package lambda
 
 import (
-	"log"
+	"context"
 	"log/slog"
 	"os"
 	"strconv"
+
+	"github.com/aws/aws-lambda-go/lambdacontext"
 )
 
-const (
-	// DebugLogFlags is the flag passed to log.SetFlags if DEBUG environment variable is true-ish.
-	DebugLogFlags = log.LstdFlags | log.Lmicroseconds | log.LUTC | log.Llongfile | log.Lmsgprefix
-
-	// DefaultLogFlags is the flag passed to log.SetFlags if DEBUG environment is not true-ish.
-	DefaultLogFlags = log.LstdFlags | log.LUTC | log.Lmsgprefix
-)
-
-// SetUpLogDefault sets up flags for the default logger depending on the DEBUG environment variable.
+// SetUpSlogDefault sets the default slog.Default to print JSON messages to os.Stderr, respecting AWS_LAMBDA_LOG_FORMAT
+// and AWS_LAMBDA_LOG_LEVEL if given.
 //
-// If the DEBUG environment variable is true-ish, DebugLogFlags is passed to log.SetFlags. Otherwise, DefaultLogFlags is
-// passed to log.SetFlags.
-func SetUpLogDefault() {
-	debug, _ := strconv.ParseBool(os.Getenv("DEBUG"))
-	if debug {
-		log.SetFlags(DebugLogFlags)
+// Replicates the logic of lambdacontext.NewLogHandler with a few key differences:
+//   - "awsRequestId" is used instead of "requestId".
+//   - defaults to JSON handler if AWS_LAMBDA_LOG_FORMAT is not given.
+//   - if DEBUG environment variable is true-ish, override AWS_LAMBDA_LOG_LEVEL to DEBUG.
+func SetUpSlogDefault() {
+	opts := &slog.HandlerOptions{ReplaceAttr: lambdacontext.ReplaceAttr}
+
+	if debug, _ := strconv.ParseBool(os.Getenv("DEBUG")); debug {
+		opts.Level = slog.LevelDebug
 	} else {
-		log.SetFlags(DefaultLogFlags)
+		switch os.Getenv("AWS_LAMBDA_LOG_LEVEL") {
+		case "DEBUG":
+			opts.Level = slog.LevelDebug
+		case "INFO":
+			opts.Level = slog.LevelInfo
+		case "WARN":
+			opts.Level = slog.LevelWarn
+		case "ERROR":
+			opts.Level = slog.LevelError
+		}
 	}
+
+	// this is where we deviate from lambdacontext.NewLogHandler: if AWS_LAMBDA_FORMAT is not given, default to JSON.
+	// if AWS_LAMBDA_FORMAT is given then follow what lambdacontext.NewLogHandler does.
+	var handler slog.Handler
+	switch format, ok := os.LookupEnv("AWS_LAMBDA_FORMAT"); {
+	case format == "JSON":
+		fallthrough
+	case !ok:
+		handler = slog.NewJSONHandler(os.Stdout, opts)
+	default:
+		handler = slog.NewTextHandler(os.Stdout, opts)
+	}
+
+	slog.SetDefault(slog.New(&slogHandler{handler}))
 }
 
-// SetUpSlogDefault sets the default slog.Default to print JSON contents to os.Stderr.
-//
-// Additionally, if DEBUG environment variable is true-ish, slog.SetLogLoggerLevel is set to slog.LevelDebug prior to
-// the slog.SetDefault call, and the slog.JSONHandler will output messages at slog.LevelDebug level. This also has the
-// effect of making every subsequent log.Printf to also print at slog.LevelDebug. See slog.SetLogLoggerLevel for a more
-// in-depth explanation.
-func SetUpSlogDefault() {
-	debug, _ := strconv.ParseBool(os.Getenv("DEBUG"))
-	var level slog.Level
-	if debug {
-		level = slog.LevelDebug
-		slog.SetLogLoggerLevel(level)
+type slogHandler struct {
+	slog.Handler
+}
+
+func (s slogHandler) Handle(ctx context.Context, record slog.Record) error {
+	if lc, ok := lambdacontext.FromContext(ctx); ok {
+		record.AddAttrs(slog.String("awsRequestId", lc.AwsRequestID))
 	}
 
-	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
-		Level: level,
-	})))
+	return s.Handler.Handle(ctx, record)
+}
+
+func (s slogHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return &slogHandler{s.WithAttrs(attrs)}
+}
+
+func (s slogHandler) WithGroup(name string) slog.Handler {
+	return &slogHandler{s.WithGroup(name)}
 }

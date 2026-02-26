@@ -3,8 +3,6 @@ package lambda
 import (
 	"context"
 	"fmt"
-	"log"
-	"log/slog"
 
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-lambda-go/lambdacontext"
@@ -42,7 +40,6 @@ type ConsumerFuncOptions[TIn any, H ConsumerFunc[TIn]] struct {
 // See package-level StartHandlerFunc for details.
 func (h *ConsumerFuncOptions[TIn, H]) Start() {
 	if !h.NoSetUpLogging {
-		SetUpLogDefault()
 		SetUpSlogDefault()
 	}
 
@@ -50,11 +47,6 @@ func (h *ConsumerFuncOptions[TIn, H]) Start() {
 		ctx, m := metrics.NewWithContext(ctx, h.metricsOptions...)
 
 		if lc, ok := lambdacontext.FromContext(ctx); ok {
-			if !h.NoSetUpLogging {
-				log.SetPrefix(lc.AwsRequestID + " ")
-				slog.SetDefault(slog.With(slog.String("awsRequestId", lc.AwsRequestID)))
-			}
-
 			m.String("awsRequestId", lc.AwsRequestID)
 		}
 
