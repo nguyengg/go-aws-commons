@@ -3,19 +3,31 @@ package preconditions
 import (
 	"fmt"
 	"net/http"
-	"regexp"
 
 	"github.com/gin-gonic/gin"
 )
 
-// IfMatch parses request header "If-Match" and (strongly) compares it against the specified strong etag.
+// IfMatch parses "If-Match" and uses strong comparison to compare the request header against the specified etag.
 //
-// The method returns two boolean variables: exists is true only if the request header "If-Match" is present, and
-// matches is true only if the header "If-Match" is valid and passes strong comparison against the given etag argument.
+// For the return values:
+//   - exists is true only if the request header is present
+//   - matches is true only if exists is true, the request header is valid and passes evaluation described in
+//     https://www.rfc-editor.org/rfc/rfc9110.html#section-13.1.1-8
+//   - a non-nil error implies exists is true, matches is false, and the request header has invalid value.
 //
-// If the request header "If-Match" is present but invalid, a non-nil error is returned. You should abort request with a
-// 400 Bad Request in that case. If the header is missing, (false, false, nil) will be returned as if it was not a matches
-// (see https://www.rfc-editor.org/rfc/rfc9110.html#section-13.1.1-9.3).
+// Usage:
+//
+//	switch exists, matches, err := IfMatch(c, preconditions.NewStrongEtag(`"xyzzy"`)); {
+//		case matches && err == nil:
+//			// (*, true, nil): your POST, PUT, or DELETE can proceed.
+//		case !matches && err == nil:
+//			// (*, false, nil): your POST, PUT, or DELETE should abort with 412 Precondition Failed.
+//		case err != nil:
+//			// (true, *, nil): your POST, PUT, or DELETE should abort with 400 Bad Request since If-Match is invalid.
+//			// err.Error() can be used as error message.
+//		case !exists:
+//			// (false, false, nil) will be returned as if it was not a match (see https://www.rfc-editor.org/rfc/rfc9110.html#section-13.1.1-9.3).
+//	}
 func IfMatch(c *gin.Context, etag StrongETag) (exists, matches bool, err error) {
 	var m ifMatcher
 	if v, ok := c.Get(ifMatchKey); ok {
@@ -38,8 +50,6 @@ func IfMatch(c *gin.Context, etag StrongETag) (exists, matches bool, err error) 
 	return true, m.Match(etag), nil
 }
 
-var eTagPattern = regexp.MustCompile(`^(W/)?(".+")$`)
-
 // parseIfMatch can be used as a low-level method to parse and check the validity of "If-Match" request header.
 //
 // A non-nil error is returned only if the "If-Match" header is present but invalid. A nil ifMatcher is returned if the
@@ -52,24 +62,22 @@ func parseIfMatch(header http.Header) (m ifMatcher, exists bool, err error) {
 
 	switch n := len(values); {
 	case n == 0:
-		return nil, false, fmt.Errorf("If-Match header has empty v")
+		return nil, false, fmt.Errorf("If-Match header has empty values")
 	case n == 1 && values[0] == "*":
 		return anyETagMatcher{}, true, nil
 	default:
 		var etags []StrongETag
 
-		for _, t := range values {
-			switch matches := eTagPattern.FindStringSubmatch(t); {
+		for i, t := range values {
+			etag, err := ParseETag(t)
+			if err != nil {
+				return nil, false, fmt.Errorf("If-Match header has invalid value at ordinal %d", i+1)
+			}
 
-			case len(matches) == 3:
-				if matches[1] == "W/" {
-					return nil, false, fmt.Errorf("If-Match header must only contain strong ETags or is *")
-				}
-
-				etags = append(etags, strongETag{v: matches[2]})
-
-			default:
-				return nil, false, fmt.Errorf("If-Match header has invalid v: %q", t)
+			if v, ok := etag.(StrongETag); ok {
+				etags = append(etags, v)
+			} else {
+				return nil, false, fmt.Errorf("If-Match header must only contain strong ETags or is *")
 			}
 		}
 

@@ -1,6 +1,11 @@
 package preconditions
 
-import "strings"
+import (
+	"errors"
+	"fmt"
+	"regexp"
+	"strings"
+)
 
 // ETag is either strong or weak, and can be either strongly compared or weakly compared against other ETag.
 //
@@ -27,9 +32,39 @@ type StrongETag interface {
 	strong()
 }
 
+var (
+	eTagPattern = regexp.MustCompile(`^(W/)?(".+")$`)
+
+	// ErrInvalidETag is returned by ParseETag if the given string is invalid.
+	ErrInvalidETag = errors.New("invalid ETag")
+)
+
+// ParseETag parses the given string as an ETag.
+//
+// If error is not nil, it can only be ErrInvalidETag.
+func ParseETag(s string) (ETag, error) {
+	if matches := eTagPattern.FindStringSubmatch(s); len(matches) == 3 {
+		if matches[1] == "W/" {
+			return weakETag{v: matches[2]}, nil
+		}
+		return strongETag{v: matches[2]}, nil
+	}
+
+	return nil, ErrInvalidETag
+}
+
+// MustParseETag is a panicky variant of ParseETag.
+func MustParseETag(s string) ETag {
+	t, err := ParseETag(s)
+	if err != nil {
+		panic(fmt.Errorf("invalid ETag (%q): %w", s, err))
+	}
+	return t
+}
+
 // NewStrongETag returns a strong ETag.
 //
-// Value should be surrounded by quotes (e.g. "xyzzy").
+// Value should be the token in-between the quotes (e.g. the xyzzy in "xyzzy").
 func NewStrongETag(value string) StrongETag {
 	if !strings.HasPrefix(value, `"`) {
 		value = `"` + value
@@ -65,7 +100,7 @@ func (s strongETag) Compare(tag ETag, strong bool) bool {
 		return s.v == t.v
 
 	default:
-		panic("are you strong or weak?")
+		return false
 	}
 }
 
@@ -79,8 +114,9 @@ func (s strongETag) String() string {
 
 // NewWeakETag returns a weak ETag.
 //
-// Value should be surrounded by quotes (e.g. "xyzzy") without the "W/" prefix.
+// Value should be the token in-between the quotes (e.g. the xyzzy in "xyzzy") and without the "W/" prefix.
 func NewWeakETag(value string) ETag {
+	value = strings.TrimPrefix(value, "W/")
 	if !strings.HasPrefix(value, `"`) {
 		value = `"` + value
 	}
@@ -115,10 +151,17 @@ func (w weakETag) Compare(tag ETag, strong bool) bool {
 		return w.v == t.v
 
 	default:
-		panic("are you strong or weak?")
+		return false
 	}
 }
 
 func (w weakETag) String() string {
 	return "W/" + w.v
+}
+
+// noETag is a sentinel value to be used with IfNoneMatch for the case where resource doesn't exist.
+//
+// See IfNoneMatchNoETag.
+type noETag struct {
+	weakETag
 }

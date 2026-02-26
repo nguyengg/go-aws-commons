@@ -13,9 +13,27 @@ import (
 // https://www.rfc-editor.org/rfc/rfc9110.html#name-if-modified-since, which can be presence of "If-None-Match" (doesn't
 // matter its validity), invalid "If-Modified-Since", or t argument is zero v; isModifiedSince is then true only if
 // t is strictly after the "If-Modified-Since" date.
+//
+// Usage:
+//
+//	switch ignored, isModifiedSince := IsModifiedSince(c, obj.LastModified); {
+//	case !ignored && !isModifiedSince:
+//		// conditional GET/HEAD should return 304 Not Modified.
+//	case ignored || isModifiedSince:
+//		fallthrough
+//	default:
+//		// proceed with GET/HEAD.
+//	}
 func IfModifiedSince(c *gin.Context, t time.Time) (ignored, isModifiedSince bool) {
 	if t.IsZero() {
 		return true, false
+	}
+
+	switch c.Request.Header.Get("If-Modified-Since") {
+	case "":
+		fallthrough
+	default:
+
 	}
 
 	m, ok := c.Get(ifModifiedSinceKey)
@@ -33,6 +51,17 @@ func IfModifiedSince(c *gin.Context, t time.Time) (ignored, isModifiedSince bool
 // https://www.rfc-editor.org/rfc/rfc9110.html#name-if-unmodified-since, which can be presence of "If-Match" (doesn't
 // matter its validity), invalid "If-Unmodified-Since", or t argument is zero v; isUnmodifiedSince is then true only
 // if the "If-Unmodified-Since" date is strictly after t.
+//
+// Usage:
+//
+//	switch ignored, isUnmodifiedSince := IfUnmodifiedSince(c, obj.LastModified); {
+//	case !ignored && !isUnmodifiedSince:
+//		// conditional POST, PUT, or DELETE should return 412 Precondition Failed.
+//	case ignored || isUnmodifiedSince:
+//		fallthrough
+//	default:
+//		// proceed with POST, PUT, or DELETE.
+//	}
 func IfUnmodifiedSince(c *gin.Context, t time.Time) (ignored, isUnmodifiedSince bool) {
 	if t.IsZero() {
 		return true, false

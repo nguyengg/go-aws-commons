@@ -8,15 +8,33 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// IfNoneMatch parses request header "If-None-Match" and (weakly) compares it against the specified etag.
+// IfNoneMatch parses request header "If-None-Match" and uses weak comparison to compare the request header against the
+// specified etag.
 //
-// The method returns two boolean variables: exists is true only if the request header "If-None-Match" is present, and
-// noneMatches is true only if the header "If-None-Match" is valid and fails weak comparison against the given etag
-// argument.
+// For the return value:
+//   - exists is true only if the request header is present
+//   - noneMatches is true only if exists is true, the request header is valid and passes evaluation described in
+//     https://www.rfc-editor.org/rfc/rfc9110.html#section-13.1.1-8
+//   - a non-nil error implies exists is true, noneMatches is false, and the request header has invalid value.
 //
-// If the request header "If-None-Match" is present but invalid, a non-nil error is returned. You should abort request
-// with a 400 Bad Request in that case. If the header is missing, (false, true, nil) will be returned (see
-// https://www.rfc-editor.org/rfc/rfc9110.html#section-13.1.2-10.3).
+// Usage:
+//
+//	switch exists, noneMatches, err := IfNoneMatch(c, preconditions.NewWeakEtag(`W/"xyzzy"`)); {
+//		case noneMatches && err == nil:
+//			// (*, true, nil): your conditional GET can proceed.
+//		case !noneMatches && err == nil:
+//			// (*, false, nil): your conditional GET should abort with 304 Not Modified; other methods with 412
+//			// Precondition Failed.
+//		case err != nil:
+//			// (true, *, nil): you should abort with 400 Bad Request since If-None-Match is invalid. err.Error() can be
+//	 		// used as error message.
+//		case !exists:
+//			// (false, true, nil) will be returned, see https://www.rfc-editor.org/rfc/rfc9110.html#section-13.1.2-10.3.
+//	}
+//
+// In the scenario where "the origin server does not have a current representation for the target resource"
+// (https://www.rfc-editor.org/rfc/rfc9110.html#section-13.1.2-10.1), use IfNoneMatchNoETag instead which will return
+// (false, true, nil) if If-None-Match is "*".
 func IfNoneMatch(c *gin.Context, etag ETag) (exists, noneMatches bool, err error) {
 	var m ifNoneMatcher
 	if v, ok := c.Get(ifNoneMatchKey); ok {
@@ -39,6 +57,14 @@ func IfNoneMatch(c *gin.Context, etag ETag) (exists, noneMatches bool, err error
 	return true, m.NoneMatch(etag), nil
 }
 
+// IfNoneMatchNoETag is a variant of IfNoneMatch for the scenario where "the origin server does not have a current
+// representation for the target resource" (https://www.rfc-editor.org/rfc/rfc9110.html#section-13.1.2-10.1).
+//
+// IfNoneMatchNoETag will return (false, true, nil) if If-None-Match is "*".
+func IfNoneMatchNoETag(c *gin.Context) (exists, noneMatches bool, err error) {
+	return IfNoneMatch(c, noETag{})
+}
+
 // parseIfNoneMatch can be used as a low-level construct to parse and check the validity of "If-None-Match" request
 // header.
 //
@@ -52,25 +78,19 @@ func parseIfNoneMatch(header http.Header) (m ifNoneMatcher, exists bool, err err
 
 	switch n := len(values); {
 	case n == 0:
-		return nil, false, fmt.Errorf("If-None-Match header has empty v")
+		return nil, false, fmt.Errorf("If-None-Match header has empty values")
 	case n == 1 && values[0] == "*":
 		return anyETagNoneMatcher{}, true, nil
 	default:
 		var etags []ETag
 
-		for _, t := range values {
-			switch matches := eTagPattern.FindStringSubmatch(t); {
-
-			case len(matches) == 3:
-				if matches[1] == "W/" {
-					etags = append(etags, weakETag{v: matches[2]})
-				} else {
-					etags = append(etags, strongETag{v: matches[2]})
-				}
-
-			default:
-				return nil, false, fmt.Errorf("If-None-Match header has invalid v: %q", t)
+		for i, t := range values {
+			etag, err := ParseETag(t)
+			if err != nil {
+				return nil, false, fmt.Errorf("If-None-Match header has invalid value at ordinal %d", i+1)
 			}
+
+			etags = append(etags, etag)
 		}
 
 		return eTagsNoneMatcher(etags), true, nil
@@ -99,6 +119,10 @@ func (m eTagsNoneMatcher) NoneMatch(tag ETag) bool {
 type anyETagNoneMatcher struct {
 }
 
-func (m anyETagNoneMatcher) NoneMatch(_ ETag) bool {
+func (m anyETagNoneMatcher) NoneMatch(tag ETag) bool {
+	if _, ok := tag.(noETag); ok {
+		return true
+	}
+
 	return false
 }
