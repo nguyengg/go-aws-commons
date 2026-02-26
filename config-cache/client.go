@@ -10,20 +10,20 @@ import (
 //
 // Usage example:
 //
-//	client, err := configcache.NewClient(context.Background(), s3.NewFromConfig)
-func NewClient[Client any, Options any](ctx context.Context, fn func(aws.Config, ...func(Options)) *Client, optFns ...func(*aws.Config)) (*Client, error) {
-	if cfg, err := Get(ctx, optFns...); err != nil {
+//	client, err := configcache.NewClient(context.Background(), s3.NewFromConfig, s3.WithPresignExpires(time.Hour))
+func NewClient[Client any, Options any](ctx context.Context, fn func(aws.Config, ...func(*Options)) *Client, clientOptions ...func(*Options)) (*Client, error) {
+	if cfg, err := Get(ctx); err != nil {
 		return nil, err
 	} else {
-		return fn(cfg), nil
+		return fn(cfg, clientOptions...), nil
 	}
 }
 
-// MustNewClient is a convenient function to create a client.
+// MustNewClient is a panicky variant of NewClient.
 //
 // Usage example:
 //
-//	client := configcache.MustNewClient(context.Background(), s3.NewFromConfig)
-func MustNewClient[Client any, Options any](ctx context.Context, fn func(aws.Config, ...func(Options)) *Client, optFns ...func(*aws.Config)) *Client {
-	return fn(MustGet(ctx, optFns...))
+//	client := configcache.MustNewClient(context.Background(), s3.NewFromConfig, s3.WithPresignExpires(1 * time.Hour))
+func MustNewClient[Client any, Options any](ctx context.Context, fn func(aws.Config, ...func(*Options)) *Client, clientOptions ...func(*Options)) *Client {
+	return fn(MustGet(ctx), clientOptions...)
 }
