@@ -16,12 +16,10 @@ import (
 )
 
 var (
-	cfg           aws.Config
-	err           error
-	set           bool
-	preLoadHooks  []func(*config.LoadOptions) error
-	postLoadHooks []func(*aws.Config)
-	lock          sync.Mutex
+	cfg  aws.Config
+	err  error
+	set  bool
+	lock sync.Mutex
 )
 
 // Get returns the current [aws.Config] and any error from creating it.
@@ -40,25 +38,14 @@ func Get(ctx context.Context, optFns ...func(*aws.Config)) (aws.Config, error) {
 		set = true
 	}
 
-	if err != nil {
-		return cfg, err
-	}
-
-	if len(optFns) > 0 {
+	if err == nil && len(optFns) > 0 {
 		cfg = cfg.Copy()
 		for _, fn := range optFns {
 			fn(&cfg)
 		}
 	}
 
-	if len(postLoadHooks) > 0 {
-		cfg = cfg.Copy()
-		for _, fn := range postLoadHooks {
-			fn(&cfg)
-		}
-	}
-
-	return cfg, nil
+	return cfg, err
 }
 
 // MustGet is a panicky variant of Get.
@@ -82,13 +69,6 @@ func MustGet(ctx context.Context, optFns ...func(*aws.Config)) aws.Config {
 		}
 	}
 
-	if len(postLoadHooks) > 0 {
-		cfg = cfg.Copy()
-		for _, fn := range postLoadHooks {
-			fn(&cfg)
-		}
-	}
-
 	return cfg
 }
 
@@ -99,7 +79,7 @@ func LoadDefaultConfig(ctx context.Context, optFns ...func(*config.LoadOptions) 
 	lock.Lock()
 	defer lock.Unlock()
 
-	cfg, err = config.LoadDefaultConfig(ctx, append(optFns, preLoadHooks...)...)
+	cfg, err = config.LoadDefaultConfig(ctx, optFns...)
 	set = true
 	return cfg, err
 }
@@ -113,7 +93,7 @@ func LoadSharedConfigProfile(ctx context.Context, profile string, optFns ...func
 	lock.Lock()
 	defer lock.Unlock()
 
-	cfg, err = config.LoadDefaultConfig(ctx, append(append(optFns, preLoadHooks...), config.WithSharedConfigProfile(profile))...)
+	cfg, err = config.LoadDefaultConfig(ctx, append(optFns, config.WithSharedConfigProfile(profile))...)
 	set = true
 	return cfg, err
 }
@@ -147,24 +127,4 @@ func AssumeRole(ctx context.Context, roleArn string, optFns ...func(*stscreds.As
 	// https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/credentials/stscreds#hdr-Assume_Role
 	cfg.Credentials = stscreds.NewAssumeRoleProvider(sts.NewFromConfig(cfg), roleArn, optFns...)
 	return cfg, err
-}
-
-// AddPreLoadHook registers a hook to modify aws.Config before they are cached.
-//
-// Modifications made by fn will be cached.
-func AddPreLoadHook(fn func(opts *config.LoadOptions) error) {
-	lock.Lock()
-	defer lock.Unlock()
-
-	preLoadHooks = append(preLoadHooks, fn)
-}
-
-// AddPostLoadHook registers a hook to modify the aws.Config right before they're returned.
-//
-// Modifications made by fn will not be cached.
-func AddPostLoadHook(fn func(cfg *aws.Config)) {
-	lock.Lock()
-	defer lock.Unlock()
-
-	postLoadHooks = append(postLoadHooks, fn)
 }
