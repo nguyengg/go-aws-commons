@@ -19,6 +19,16 @@ func Logger(options ...func(cfg *LoggerConfig)) gin.HandlerFunc {
 	for _, optFn := range options {
 		optFn(cfg)
 	}
+	if cfg.Skip == nil {
+		cfg.Skip = func(ctx context.Context, req *http.Request) bool {
+			return false
+		}
+	}
+	if cfg.SkipLogErrorType == nil {
+		cfg.SkipLogErrorType = func(errorType gin.ErrorType) bool {
+			return false
+		}
+	}
 
 	return func(c *gin.Context) {
 		var (
@@ -74,14 +84,17 @@ func Logger(options ...func(cfg *LoggerConfig)) gin.HandlerFunc {
 				}
 			}
 
-			if errors := c.Errors.ByType(gin.ErrorTypePrivate); len(errors) != 0 {
-				for _, err := range errors {
-					m.PushError(err, true)
+			for _, err := range c.Errors {
+				switch t := err.Type; t {
+				case gin.ErrorTypeRender, gin.ErrorTypePrivate, gin.ErrorTypeAny:
+					if !cfg.SkipLogErrorType(t) {
+						m.PushError(err, true)
+					}
+				default:
+					if !cfg.SkipLogErrorType(t) {
+						m.PushError(err, false)
+					}
 				}
-			}
-
-			if err := c.Errors.Last(); err != nil && !m.HasError() {
-				m.Error(err)
 			}
 
 			w := c.Writer
@@ -101,10 +114,15 @@ func Logger(options ...func(cfg *LoggerConfig)) gin.HandlerFunc {
 
 // LoggerConfig contains customisations for Logger middleware.
 type LoggerConfig struct {
-	// Skip indicates which kind of requests to skip logging.
+	// Skip returns true for which kind of requests to skip logging.
 	//
 	// Combine both [gin.LoggerConfig.SkipPath] and [gin.LoggerConfig.Skip].
 	Skip func(ctx context.Context, req *http.Request) bool
+
+	// SkipLogErrorType returns true for which kind of errors to skip logging.
+	//
+	// See SkipLogErrorTypes.
+	SkipLogErrorType func(gin.ErrorType) bool
 
 	// DisableRecovery, if specified, disable gin.Recovery replacement.
 	DisableRecovery bool
@@ -130,6 +148,24 @@ func SkipPath(paths ...string) func(cfg *LoggerConfig) {
 		cfg.Skip = func(_ context.Context, req *http.Request) bool {
 			_, ok := m[req.URL.Path]
 			return ok
+		}
+	}
+}
+
+// SkipLogErrorTypes is a convenient method to replace LoggerConfig.SkipLogErrorType with one that will skip logging for
+// any error of the given types.
+//
+// By default, all errors added with [gin.Context.Error] will be logged with [metrics.Metrics.PushError].
+func SkipLogErrorTypes(types ...gin.ErrorType) func(cfg *LoggerConfig) {
+	m := make(map[gin.ErrorType]struct{})
+	for _, t := range types {
+		m[t] = struct{}{}
+	}
+
+	return func(cfg *LoggerConfig) {
+		cfg.SkipLogErrorType = func(t gin.ErrorType) (ok bool) {
+			_, ok = m[t]
+			return
 		}
 	}
 }

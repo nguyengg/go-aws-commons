@@ -37,3 +37,13 @@ func GetLogger(c *gin.Context, withFns ...func(*slog.Logger) *slog.Logger) *slog
 
 	return logger
 }
+
+// TryGetLogger is a variant of GetLogger that will return (nil, false) if no slog.Logger instance is attached to
+// context.
+func TryGetLogger(c *gin.Context) (*slog.Logger, bool) {
+	if v, ok := c.Get(slogLoggerKey); ok {
+		return v.(*slog.Logger), true
+	}
+
+	return nil, false
+}

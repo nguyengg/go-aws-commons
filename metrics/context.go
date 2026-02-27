@@ -41,7 +41,7 @@ func MustGet(ctx context.Context) *Metrics {
 
 // TryGet is a variant of Get that does not return a new Metrics instance.
 //
-// Use this if you absolutely need an existing Metrics instance to exist.
+// Use this if you need to test whether an existing Metrics instance is available.
 func TryGet(ctx context.Context) (*Metrics, bool) {
 	m, ok := ctx.Value(metricsKey{}).(*Metrics)
 	return m, ok
