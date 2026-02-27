@@ -139,23 +139,22 @@ func (c clientSideMetricsMiddleware) ID() string {
 }
 
 func (c clientSideMetricsMiddleware) HandleDeserialize(ctx context.Context, in smithymw.DeserializeInput, next smithymw.DeserializeHandler) (out smithymw.DeserializeOutput, metadata smithymw.Metadata, err error) {
-	start := time.Now()
-
-	out, metadata, err = next.HandleDeserialize(ctx, in)
-
-	end := time.Now()
-	if t, ok := awsmw.GetResponseAt(metadata); ok {
-		end = t
-	}
-
 	m, ok := TryGet(ctx)
 	if !ok {
 		if c.strict {
 			return out, metadata, eris.New("no metrics available from context")
 		}
 
-		slog.LogAttrs(ctx, slog.LevelDebug, "no metrics available from context")
-		return
+		// we'll rely on eris to give us the stack trace so that user can figure out which call is missing metrics.
+		slog.LogAttrs(ctx, slog.LevelDebug, "no metrics available from context", slog.Any("error", eris.New("no metrics available from context")))
+		return next.HandleDeserialize(ctx, in)
+	}
+
+	start := time.Now()
+	out, metadata, err = next.HandleDeserialize(ctx, in)
+	end := time.Now()
+	if t, ok := awsmw.GetResponseAt(metadata); ok {
+		end = t
 	}
 
 	// DynamoDB GetItem => DynamoDB.GetItem
