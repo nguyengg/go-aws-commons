@@ -70,14 +70,7 @@ func Logger(options ...func(cfg *LoggerConfig)) gin.HandlerFunc {
 						m.Error(eris.Wrapf(fmt.Errorf("%+v", v), "recover non-error %T: %#v", v, v))
 					}
 
-					if cfg.abortInJson && !c.Writer.Written() {
-						c.JSON(http.StatusInternalServerError, gin.H{
-							"status":  http.StatusInternalServerError,
-							"message": http.StatusText(http.StatusInternalServerError),
-						})
-					} else {
-						c.Abort()
-					}
+					c.AbortWithStatus(http.StatusInternalServerError)
 				}
 			}
 
@@ -92,18 +85,6 @@ func Logger(options ...func(cfg *LoggerConfig)) gin.HandlerFunc {
 			}
 
 			w := c.Writer
-
-			if c.IsAborted() && cfg.abortInJson && !w.Written() {
-				status := w.Status()
-				if status == 0 {
-					status = http.StatusInternalServerError
-				}
-
-				c.JSON(status, gin.H{
-					"status":  status,
-					"message": http.StatusText(status),
-				})
-			}
 
 			m.
 				Int64("status", int64(w.Status())).
@@ -133,9 +114,8 @@ type LoggerConfig struct {
 	// If nil, slog.Default will be used. The child loggers can be retrieved with Slog.
 	Parent *slog.Logger
 
-	abortInJson bool
-	newMetrics  func(c *gin.Context) *metrics.Metrics
-	requestId   func() string
+	newMetrics func(c *gin.Context) *metrics.Metrics
+	requestId  func() string
 }
 
 // SkipPath is a convenient method to replace LoggerConfig.Skip with one that will skip logging for any request to the
@@ -164,31 +144,6 @@ func SkipPath(paths ...string) func(cfg *LoggerConfig) {
 func WithCustomMetrics(fn func(c *gin.Context) *metrics.Metrics) func(cfg *LoggerConfig) {
 	return func(cfg *LoggerConfig) {
 		cfg.newMetrics = fn
-	}
-}
-
-// WithAbortInJSON supplants an aborted ([gin.Context.IsAborted] request with a JSON response if response body has not
-// been written ([gin.ResponseWriter.Written]).
-//
-// Inspired by https://gin-gonic.com/en/docs/examples/error-handling-middleware/, this makes the most sense in API
-// context where the response is in JSON, but sometimes you may forget to write JSON content, or another middleware has
-// aborted the request but not written any content. The JSON response will be in this format:
-//
-//	{
-//		"status": 400 | 500 | ...
-//		"message": "Bad Request" | "Internal Server Error" | ...
-//	}
-//
-// The status comes from [gin.ResponseWriter.Status]; if none was given, 500 will be used as default since the request
-// was aborted.
-//
-// Usage:
-//
-//	r := gin.New()
-//	r.User(ginmetrics.Logger(ginmetrics.WithAbortInJSON())
-func WithAbortInJSON() func(cfg *LoggerConfig) {
-	return func(cfg *LoggerConfig) {
-		cfg.abortInJson = true
 	}
 }
 
