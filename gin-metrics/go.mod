@@ -3,15 +3,16 @@ module github.com/nguyengg/go-aws-commons/gin-metrics
 go 1.25
 
 require (
+	github.com/aws/aws-sdk-go-v2 v1.41.2
 	github.com/gin-gonic/gin v1.11.0
 	github.com/google/uuid v1.6.0
+	github.com/nguyengg/go-aws-commons/config-cache v0.1.9
 	github.com/nguyengg/go-aws-commons/metrics v0.5.8
 	github.com/rotisserie/eris v0.5.4
 	github.com/stretchr/testify v1.11.1
 )
 
 require (
-	github.com/aws/aws-sdk-go-v2 v1.41.2 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.32.10 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.10 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.18 // indirect
