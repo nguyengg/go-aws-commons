@@ -62,9 +62,9 @@ func (s slogHandler) Handle(ctx context.Context, record slog.Record) error {
 }
 
 func (s slogHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	return &slogHandler{s.WithAttrs(attrs)}
+	return &slogHandler{Handler: s.Handler.WithAttrs(attrs)}
 }
 
 func (s slogHandler) WithGroup(name string) slog.Handler {
-	return &slogHandler{s.WithGroup(name)}
+	return &slogHandler{Handler: s.Handler.WithGroup(name)}
 }
