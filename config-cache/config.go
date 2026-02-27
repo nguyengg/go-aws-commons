@@ -1,7 +1,7 @@
-// Package configcache provides a centralised place to retrieve default aws.Config for creating AWS clients.
+// Package configcache provides a singleton cache to retrieve a default aws.Config instance for creating AWS SDK clients.
 //
-// The main method should explicitly create and cache a config with LoadDefaultConfig, LoadSharedConfigProfile, or
-// LoadConfig. Whenever an aws.Config instance is needed, call Get or MustGet. Most libraries in go-aws-commons that can
+// The main method should explicitly create and cache a config with LoadDefaultConfig, LoadSharedConfigProfile, Set, or
+// Update. Whenever an aws.Config instance is needed, call Get or MustGet. Most libraries in go-aws-commons that can
 // create a default SDK client will use Get to do so.
 package configcache
 
@@ -16,106 +16,54 @@ import (
 )
 
 var (
-	cfg  aws.Config
-	err  error
-	set  bool
-	lock sync.Mutex
+	cfg   aws.Config
+	err   error
+	set   bool
+	hooks []func(*aws.Config)
+	lock  sync.Mutex
 )
 
-// Get returns the current [aws.Config] and any error from creating it.
+// Get returns the cached config or any error from creating it.
 //
 // If the cache has no config, config.LoadDefaultConfig will be used to create and cache one.
-//
-// The optFns argument modifies the aws.Config after it has been shallow-copied with [aws.Config.Copy]. As a result,
-// those changes should not persist to the globally cached aws.Config in most cases. If you need to modify the globally
-// cached instance, use LoadDefaultConfig, Profile, or AssumeRole.
-func Get(ctx context.Context, optFns ...func(*aws.Config)) (aws.Config, error) {
+func Get(ctx context.Context) (aws.Config, error) {
 	lock.Lock()
 	defer lock.Unlock()
 
 	if !set {
-		cfg, err = config.LoadDefaultConfig(ctx)
-		set = true
-	}
-
-	if err == nil && len(optFns) > 0 {
-		cfg = cfg.Copy()
-		for _, fn := range optFns {
-			fn(&cfg)
+		if cfg, err = config.LoadDefaultConfig(ctx); err == nil {
+			applyHooks(&cfg)
 		}
+		set = true
 	}
 
 	return cfg, err
 }
 
 // MustGet is a panicky variant of Get.
-func MustGet(ctx context.Context, optFns ...func(*aws.Config)) aws.Config {
-	lock.Lock()
-	defer lock.Unlock()
-
-	if !set {
-		cfg, err = config.LoadDefaultConfig(ctx)
-		set = true
-	}
-
+func MustGet(ctx context.Context) aws.Config {
+	cfg, err := Get(ctx)
 	if err != nil {
 		panic(err)
-	}
-
-	if len(optFns) > 0 {
-		cfg = cfg.Copy()
-		for _, fn := range optFns {
-			fn(&cfg)
-		}
 	}
 
 	return cfg
 }
 
-// LoadDefaultConfig creates, caches, and returns a new aws.Config instance created with config.LoadDefaultConfig.
-//
-// The optFns argument modifies the aws.Config prior to caching it.
-func LoadDefaultConfig(ctx context.Context, optFns ...func(*config.LoadOptions) error) (aws.Config, error) {
+// Set changes the cached config to the given instance.
+func Set(c aws.Config) {
 	lock.Lock()
 	defer lock.Unlock()
 
-	cfg, err = config.LoadDefaultConfig(ctx, optFns...)
-	set = true
-	return cfg, err
+	cfg, err, set = c, nil, true
+	applyHooks(&cfg)
 }
 
-// LoadSharedConfigProfile creates, caches, and returns a new aws.Config with its [aws.Config.SharedConfigProfile] set
-// to the given profile.
+// Update modifies the cached config.
 //
-// It does this by attaching config.WithSharedConfigProfile as the last optFn argument; the optFns argument modifies the
-// aws.Config prior to caching it.
-func LoadSharedConfigProfile(ctx context.Context, profile string, optFns ...func(*config.LoadOptions) error) (aws.Config, error) {
-	lock.Lock()
-	defer lock.Unlock()
-
-	cfg, err = config.LoadDefaultConfig(ctx, append(optFns, config.WithSharedConfigProfile(profile))...)
-	set = true
-	return cfg, err
-}
-
-// LoadConfig caches the given aws.Config for later usage via Get, MustGet, AssumeRole.
-func LoadConfig(c aws.Config) {
-	lock.Lock()
-	defer lock.Unlock()
-
-	cfg = c
-	err = nil
-}
-
-// AssumeRole creates and returns a new aws.Config instance that assumes the given role.
-//
-// If the cache has no aws.Config instance prior to this call, a default instance will be created and cached with
-// config.LoadDefaultConfig. This cached instance will provide the STS client to assume the specified role. If you need
-// to configure the original STS client, explicitly call LoadDefaultConfig first.
-//
-// Subsequent Get will return the cached aws.Config instance, not the instance returned by AssumeRole. If you want all
-// subsequent Get to use the same instance returned by AssumeRole, call LoadConfig.
-func AssumeRole(ctx context.Context, roleArn string, optFns ...func(*stscreds.AssumeRoleOptions)) (aws.Config, error) {
+// Similar to Get, if the cache has no config, config.LoadDefaultConfig will be used to create one. The updated config
+// is returned.
+func Update(ctx context.Context, fn func(*aws.Config)) (aws.Config, error) {
 	lock.Lock()
 	defer lock.Unlock()
 
@@ -124,7 +72,81 @@ func AssumeRole(ctx context.Context, roleArn string, optFns ...func(*stscreds.As
 		set = true
 	}
 
+	if err == nil {
+		fn(&cfg)
+		applyHooks(&cfg)
+	}
+
+	return cfg, err
+}
+
+// MustUpdate is a panicky variant of Update.
+func MustUpdate(ctx context.Context, fn func(*aws.Config)) aws.Config {
+	cfg, err := Update(ctx, fn)
+	if err != nil {
+		panic(err)
+	}
+
+	return cfg
+}
+
+// LoadDefaultConfig uses config.LoadDefaultConfig to set the cached config.
+//
+// The optFns argument modifies the config prior to caching it.
+func LoadDefaultConfig(ctx context.Context, optFns ...func(*config.LoadOptions) error) (aws.Config, error) {
+	lock.Lock()
+	defer lock.Unlock()
+
+	if cfg, err = config.LoadDefaultConfig(ctx, optFns...); err == nil {
+		applyHooks(&cfg)
+	}
+	set = true
+
+	return cfg, err
+}
+
+// LoadSharedConfigProfile uses config.LoadDefaultConfig to set the cached config to using shared config profile.
+//
+// Specifically, config.WithSharedConfigProfile is appended to the optFn argument.
+func LoadSharedConfigProfile(ctx context.Context, profile string, optFns ...func(*config.LoadOptions) error) (aws.Config, error) {
+	return LoadDefaultConfig(ctx, append(optFns, config.WithSharedConfigProfile(profile))...)
+}
+
+// AssumeRole creates a derived config that assumes the given role.
+//
+// Similar to Get, if the cache has no config, config.LoadDefaultConfig will be used to create one. This cached config
+// is used to create the original STS client to assume the specified role. If you need to configure this STS client,
+// explicitly call LoadDefaultConfig, LoadSharedConfigProfile, Set, or Update first.
+//
+// This method does not update the cache otherwise.
+func AssumeRole(ctx context.Context, roleArn string, optFns ...func(*stscreds.AssumeRoleOptions)) (aws.Config, error) {
+	cfg, err := Get(ctx)
+	if err != nil {
+		return cfg, err
+	}
+
 	// https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/credentials/stscreds#hdr-Assume_Role
 	cfg.Credentials = stscreds.NewAssumeRoleProvider(sts.NewFromConfig(cfg), roleArn, optFns...)
-	return cfg, err
+	return cfg, nil
+}
+
+// AddHook adds a hook to the cache.
+//
+// If the cache already has a config, fn is applied right away to the cached config similar to Update. If the cache does
+// not have a config, or if a new config is being cached (via Set, Update, LoadDefaultConfig, or
+// LoadSharedConfigProfile), the hooks will be applied on the config prior to caching.
+//
+// Hooks are useful when you have modifiers you want to apply to the aws.Config instances regardless of how they were
+// created. A good hook is to add metrics.NewClientSideMetrics for example.
+func AddHook(hook func(cfg *aws.Config)) {
+	lock.Lock()
+	defer lock.Unlock()
+
+	hooks = append(hooks, hook)
+}
+
+func applyHooks(cfg *aws.Config) {
+	for _, fn := range hooks {
+		fn(cfg)
+	}
 }
