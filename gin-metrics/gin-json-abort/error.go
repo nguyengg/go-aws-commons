@@ -1,4 +1,4 @@
-package ginjson
+package abort
 
 import (
 	"encoding/json"
