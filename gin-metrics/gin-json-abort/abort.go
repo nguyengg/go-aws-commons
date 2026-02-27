@@ -17,11 +17,11 @@ package abort
 
 import (
 	"fmt"
-	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	ginmetrics "github.com/nguyengg/go-aws-commons/gin-metrics"
+	"github.com/nguyengg/go-aws-commons/gin-metrics/internal"
+	"github.com/rotisserie/eris"
 )
 
 // WithStatusMessagef aborts the request with the given code as status and the formatted string as message.
@@ -30,15 +30,17 @@ import (
 func WithStatusMessagef(c *gin.Context, code int, format string, a ...any) {
 	// https://www.jetbrains.com/help/go/2023.3/formatting-strings.html wants these methods' names to end with f.
 
-	message := fmt.Sprintf(format, a...)
-	c.AbortWithStatusJSON(code, gin.H{
-		"status":  code,
-		"message": message,
-	})
+	if message := fmt.Sprintf(format, a...); message != "" {
+		c.AbortWithStatusJSON(code, gin.H{
+			"status":  code,
+			"message": message,
+		})
 
-	if logger, ok := ginmetrics.TryGetLogger(c); ok {
-		logger.LogAttrs(c, slog.LevelInfo, fmt.Sprintf("aborted with %d %s: %s", code, http.StatusText(code), message))
+		internal.Logf(c, code, "aborted with %d %s: %s", code, http.StatusText(code), message)
+		return
 	}
+
+	WithStatus(c, code)
 }
 
 // WithStatus is a variant of WithStatusMessagef that supplants a default http.StatusText message.
@@ -52,10 +54,7 @@ func WithStatus(c *gin.Context, code int) {
 			"message": message,
 		})
 
-		if logger, ok := ginmetrics.TryGetLogger(c); ok {
-			logger.LogAttrs(c, slog.LevelInfo, fmt.Sprintf("aborted with %d %s", code, message))
-		}
-
+		internal.Logf(c, code, "aborted with %d %s", code, message)
 		return
 	}
 
@@ -63,7 +62,22 @@ func WithStatus(c *gin.Context, code int) {
 		"status": code,
 	})
 
-	if logger, ok := ginmetrics.TryGetLogger(c); ok {
-		logger.LogAttrs(c, slog.LevelInfo, fmt.Sprintf("aborted with %d", code))
-	}
+	internal.Logf(c, code, "aborted with %d", code)
+}
+
+// Wrapf aborts the request with http.StatusInternalServerError as status and "Internal Server Error" as message.
+//
+// The message returned to user is always "Internal Server Error" so feel free to provide as much information about the
+// error as possible.
+//
+// Use this when your handler runs into a server-fault error that should abort the request, you want to capture and log
+// the error, but you do not want to report the details of that error to user. This is a variant of
+// internalservererror.AbortWithErrorMessagef with a fixed message returned to user.
+func Wrapf(c *gin.Context, err error, format string, a ...any) *gin.Error {
+	c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+		"status":  http.StatusInternalServerError,
+		"message": http.StatusText(http.StatusInternalServerError),
+	})
+
+	return internal.LogErrorf(c, http.StatusInternalServerError, eris.Wrapf(err, format, a...), "aborted with 500 Internal Server Error")
 }
