@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 	ginmetrics "github.com/nguyengg/go-aws-commons/gin-metrics"
@@ -23,7 +24,7 @@ func (e errorValue) MarshalJSON() ([]byte, error) {
 }
 
 // LogErrorf is a helper method to log the given error and message using slog.
-func LogErrorf(c *gin.Context, status int, err error, format string, a ...any) *gin.Error {
+func LogErrorf(c *gin.Context, status int, err error, msg string) *gin.Error {
 	logger, ok := ginmetrics.TryGetLogger(c)
 	if !ok {
 		return c.Error(err)
@@ -34,12 +35,17 @@ func LogErrorf(c *gin.Context, status int, err error, format string, a ...any) *
 		level = slog.LevelError
 	}
 
-	logger.LogAttrs(c, level, fmt.Sprintf(format, a...), slog.Any("error", slog.AnyValue(errorValue{err})))
+	if msg != "" {
+		logger.LogAttrs(c, level, fmt.Sprintf("aborted with %s: %s", statusCode(status), msg), slog.Any("error", slog.AnyValue(errorValue{err})))
+	} else {
+		logger.LogAttrs(c, level, fmt.Sprintf("aborted with %s", statusCode(status)), slog.Any("error", slog.AnyValue(errorValue{err})))
+	}
+
 	return c.Error(err)
 }
 
 // Logf is a helper method to log the given message using slog.
-func Logf(c *gin.Context, status int, format string, a ...any) {
+func Logf(c *gin.Context, status int, msg string) {
 	logger, ok := ginmetrics.TryGetLogger(c)
 	if !ok {
 		return
@@ -50,5 +56,19 @@ func Logf(c *gin.Context, status int, format string, a ...any) {
 		level = slog.LevelError
 	}
 
-	logger.LogAttrs(c, level, fmt.Sprintf(format, a...))
+	if msg != "" {
+		logger.LogAttrs(c, level, fmt.Sprintf("aborted with %s: %s", statusCode(status), msg))
+	} else {
+		logger.LogAttrs(c, level, fmt.Sprintf("aborted with %s", statusCode(status)))
+	}
+}
+
+type statusCode int
+
+func (c statusCode) Format(f fmt.State, _ rune) {
+	if m := http.StatusText(int(c)); m != "" {
+		_, _ = fmt.Fprintf(f, "%d %s", int(c), m)
+	} else {
+		_, _ = fmt.Fprintf(f, "%d", int(c))
+	}
 }

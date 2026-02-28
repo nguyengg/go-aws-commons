@@ -1,3 +1,4 @@
+// Package cachecontrol provides a declarative way to create the Cache-Control directives.
 package cachecontrol
 
 import (
