@@ -49,9 +49,10 @@ func Logger(options ...func(cfg *LoggerConfig)) gin.HandlerFunc {
 			}
 		}
 
-		var logger = cfg.Parent
-		if logger == nil {
-			logger = slog.Default()
+		if cfg.Parent != nil {
+			GetLogger(c, func(logger *slog.Logger) *slog.Logger {
+				return cfg.Parent
+			})
 		}
 
 		if cfg.requestId != nil {
@@ -59,7 +60,7 @@ func Logger(options ...func(cfg *LoggerConfig)) gin.HandlerFunc {
 			m.String("requestId", rid)
 			c.Header("X-Request-Id", rid)
 			c.Set(requestIdKey, rid)
-			c.Set(slogLoggerKey, logger.With(slog.String("requestId", rid)))
+			GetLoggerWith(c, slog.String("requestId", rid))
 		}
 
 		m.
@@ -130,7 +131,8 @@ type LoggerConfig struct {
 
 	// Parent is the slog.Logger instance that is used to derive loggers for specific requests.
 	//
-	// If nil, slog.Default will be used. The child loggers can be retrieved with Slog.
+	// If nil, slog.Logger from context.Context will be used, and if that is also not available, slog.Default will be
+	// used. The child loggers can be retrieved with GetLogger.
 	Parent *slog.Logger
 
 	newMetrics func(c *gin.Context) *metrics.Metrics

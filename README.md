@@ -20,6 +20,7 @@ Available as their own module:
 * [s3reader](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/s3reader): implements `io.ReadSeeker`, `io.ReaderAt`, and `io.WriterTo` using S3 ranged GetObject.
 * [s3writer](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/s3writer): implements `io.Writer` and `io.ReaderFrom` for uploading to S3.
 * [scale-in-protection](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/scale-in-protection) (`sip`): protect EC2 AutoScaling instances from being scaled down while busy.
+* [slogging](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/slogging): attach/retrieve to/from context; JSON and error (with stack trace) `slog.Value` implementations.
 * [sri](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/sri): Subresource Integrity (SRI) computation and verification.
 * [tspb](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/tspb): Terminal-Safe Progress Bar (TSPB); when you want your program to show progress bar in interactive mode (with terminal), but log normally otherwise.
 
@@ -29,5 +30,3 @@ Available as package in this module ([commons](https://pkg.go.dev/github.com/ngu
 * [executor](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/executor): Java's [Executor](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/Executor.html) for Go.
 * [fmt](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/fmt): provides [fmt.Formatter](https://pkg.go.dev/fmt#Formatter) implementations for printing/logging any data as JSON.
 * [must](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/must): for when you're tired of typing `if a, err := someFunction(); err != nil` and just want to panic instead.
-* [slog](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/slog): attach/retrieve to/from context; JSON and error (with stack trace) `slog.Value` implementations.
-* 

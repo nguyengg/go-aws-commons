@@ -1,4 +1,4 @@
-// Package slog provides utilities to attach and retrieve slog.Logger instances from context.
+// Package slogging provides utilities to attach and retrieve slog.Logger instances from context.
 //
 // It also provides slog.Value implementations for JSON and error (with stack trace) types.
 package slogging

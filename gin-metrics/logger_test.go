@@ -11,6 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/nguyengg/go-aws-commons/metrics"
+	"github.com/nguyengg/go-aws-commons/slogging"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -40,7 +41,7 @@ func TestLogger(t *testing.T) {
 
 			time.Sleep(3 * time.Second) // for latency.
 
-			Slog(c).InfoContext(c, "I am the walrus") // expecting this message to contain request Id.
+			GetLogger(c).InfoContext(c, "I am the walrus") // expecting this message to contain request Id.
 
 			c.String(http.StatusTeapot, http.StatusText(http.StatusTeapot)+" "+RequestId(c))
 		})
@@ -71,5 +72,67 @@ func TestLogger(t *testing.T) {
   "msg": "I am the walrus",
   "requestId": "my-request-id"
 }`, lbuf.String())
+	})
+}
+
+func TestLogger_GetLoggerFromContext(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		var buf bytes.Buffer
+
+		slog.SetDefault(slog.New(slog.NewJSONHandler(&buf, nil)))
+
+		r := gin.New()
+		r.Use(Logger(WithRequestId(), func(cfg *LoggerConfig) {
+			cfg.requestId = func() string {
+				return "my-request-id"
+			}
+		}))
+		r.GET("/ping", func(c *gin.Context) {
+			// must use slogging.Get with c.Request.Context() because ContextWithFallback is not enabled.
+			slogging.Get(c.Request.Context()).InfoContext(c, "I am the walrus") // expecting this message to contain request Id.
+		})
+
+		w := httptest.NewRecorder()
+		req, _ := http.NewRequest("GET", "/ping", nil)
+		r.ServeHTTP(w, req)
+
+		assert.JSONEq(t, `{
+  "time": "1999-12-31T16:00:00-08:00",
+  "level": "INFO",
+  "msg": "I am the walrus",
+  "requestId": "my-request-id"
+}`, buf.String())
+	})
+}
+
+func TestLogger_GetLoggerFromContextWithFallback(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		var buf bytes.Buffer
+
+		slog.SetDefault(slog.New(slog.NewJSONHandler(&buf, nil)))
+
+		r := gin.New(func(engine *gin.Engine) {
+			engine.ContextWithFallback = true
+		})
+		r.Use(Logger(WithRequestId(), func(cfg *LoggerConfig) {
+			cfg.requestId = func() string {
+				return "my-request-id"
+			}
+		}))
+		r.GET("/ping", func(c *gin.Context) {
+			// since ContextWithFallback is enabled, can use slogging.Get(c).
+			slogging.Get(c).InfoContext(c, "I am the walrus") // expecting this message to contain request Id.
+		})
+
+		w := httptest.NewRecorder()
+		req, _ := http.NewRequest("GET", "/ping", nil)
+		r.ServeHTTP(w, req)
+
+		assert.JSONEq(t, `{
+  "time": "1999-12-31T16:00:00-08:00",
+  "level": "INFO",
+  "msg": "I am the walrus",
+  "requestId": "my-request-id"
+}`, buf.String())
 	})
 }

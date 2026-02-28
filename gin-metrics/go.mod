@@ -1,11 +1,12 @@
 module github.com/nguyengg/go-aws-commons/gin-metrics
 
-go 1.25
+go 1.25.0
 
 require (
 	github.com/gin-gonic/gin v1.11.0
 	github.com/google/uuid v1.6.0
 	github.com/nguyengg/go-aws-commons/metrics v0.5.8
+	github.com/nguyengg/go-aws-commons/slogging v0.1.0
 	github.com/rotisserie/eris v0.5.4
 	github.com/stretchr/testify v1.11.1
 )
