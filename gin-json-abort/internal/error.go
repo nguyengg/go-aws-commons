@@ -36,9 +36,9 @@ func LogErrorf(c *gin.Context, status int, err error, msg string) *gin.Error {
 	}
 
 	if msg != "" {
-		logger.LogAttrs(c, level, fmt.Sprintf("aborted with %s: %s", statusCode(status), msg), slog.Any("error", slog.AnyValue(errorValue{err})))
+		logger.LogAttrs(c, level, fmt.Sprintf("aborted with %s: %s", statusCode(status), msg), slog.Any("error", slog.AnyValue(errorValue{eris.Wrap(err, msg)})))
 	} else {
-		logger.LogAttrs(c, level, fmt.Sprintf("aborted with %s", statusCode(status)), slog.Any("error", slog.AnyValue(errorValue{err})))
+		logger.LogAttrs(c, level, fmt.Sprintf("aborted with %s", statusCode(status)), slog.Any("error", slog.AnyValue(errorValue{eris.Wrap(err, msg)})))
 	}
 
 	return c.Error(err)
