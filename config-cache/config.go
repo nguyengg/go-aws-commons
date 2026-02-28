@@ -125,8 +125,7 @@ func AssumeRole(ctx context.Context, roleArn string, optFns ...func(*stscreds.As
 		return cfg, err
 	}
 
-	// https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/credentials/stscreds#hdr-Assume_Role
-	cfg.Credentials = stscreds.NewAssumeRoleProvider(sts.NewFromConfig(cfg), roleArn, optFns...)
+	WithAssumeRole(roleArn, optFns...)(&cfg)
 	return cfg, nil
 }
 
@@ -143,6 +142,14 @@ func AddHook(hook func(cfg *aws.Config)) {
 	defer lock.Unlock()
 
 	hooks = append(hooks, hook)
+}
+
+// WithAssumeRole creates a hook to modify the config to assume a specific role.
+func WithAssumeRole(roleArn string, optFns ...func(*stscreds.AssumeRoleOptions)) func(cfg *aws.Config) {
+	return func(cfg *aws.Config) {
+		// https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/credentials/stscreds#hdr-Assume_Role
+		cfg.Credentials = aws.NewCredentialsCache(stscreds.NewAssumeRoleProvider(sts.NewFromConfig(cfg.Copy()), roleArn, optFns...))
+	}
 }
 
 func applyHooks(cfg *aws.Config) {
