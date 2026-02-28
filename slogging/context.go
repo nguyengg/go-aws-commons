@@ -32,10 +32,30 @@ func TryGet(ctx context.Context) (*slog.Logger, bool) {
 	return logger, ok
 }
 
-// UpdateContext retrieves the slog.Logger instance that was attached with WithContext, applies changes to that instance
-// with fn, then attaches the new instance to the returned context.
+// GetWith is a variant of Get that allows updating of the logger with attributes.
 //
-// Useful if you need to retrieve a logger while also passing it to other callers via context.
+// [slog.Logger.With] is used to update the logger. You should pass any number slog.Attr as the args.
+//
+// The modified logger is returned along with the updated context.
+func GetWith(ctx context.Context, args ...any) (context.Context, *slog.Logger) {
+	logger, ok := ctx.Value(&loggerKey{}).(*slog.Logger)
+	if !ok {
+		logger = slog.Default()
+	}
+
+	if len(args) != 0 {
+		logger = logger.With(args...)
+		ctx = context.WithValue(ctx, &loggerKey{}, logger)
+	}
+
+	return ctx, logger
+}
+
+// UpdateContext is a variant of GetWith that receives a function to update the logger instead of attributes.
+//
+// The logger returned by fn is attached to context and returned.
+//
+// Useful if you need to update the logger with [slog.Logger.WithGroup], for example, instead of attributes.
 func UpdateContext(ctx context.Context, fn func(logger *slog.Logger) *slog.Logger) (context.Context, *slog.Logger) {
 	logger, ok := ctx.Value(&loggerKey{}).(*slog.Logger)
 	if !ok {
