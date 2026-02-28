@@ -8,6 +8,7 @@ package configcache
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -148,7 +149,19 @@ func AddHook(hook func(cfg *aws.Config)) {
 func WithAssumeRole(roleArn string, optFns ...func(*stscreds.AssumeRoleOptions)) func(cfg *aws.Config) {
 	return func(cfg *aws.Config) {
 		// https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/credentials/stscreds#hdr-Assume_Role
-		cfg.Credentials = aws.NewCredentialsCache(stscreds.NewAssumeRoleProvider(sts.NewFromConfig(cfg.Copy()), roleArn, optFns...))
+		client := sts.NewFromConfig(cfg.Copy())
+
+		// need to save the expiry time to match up with credentials since we're not allowing user to customise it.
+		var duration time.Duration
+		creds := stscreds.NewAssumeRoleProvider(client, roleArn, append(optFns, func(opts *stscreds.AssumeRoleOptions) {
+			duration = opts.Duration
+		})...)
+
+		cfg.Credentials = aws.NewCredentialsCache(creds, func(opts *aws.CredentialsCacheOptions) {
+			if opts.ExpiryWindow = duration; opts.ExpiryWindow > 10*time.Minute {
+				opts.ExpiryWindowJitterFrac = 0.90
+			}
+		})
 	}
 }
 
