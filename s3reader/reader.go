@@ -1,3 +1,4 @@
+// Package s3reader provides io.ReadSeeker, io.ReaderAt, and io.WriterTo implementations using S3 ranged GetObject.
 package s3reader
 
 import (
