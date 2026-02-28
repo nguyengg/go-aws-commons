@@ -36,7 +36,7 @@ type Session struct {
 	table   *ddb.Table
 	manager *ddb.Manager
 	t       reflect.Type
-	v       interface{}
+	v       any
 
 	// csrf stuff.
 	hasher         hmac.Hasher
@@ -44,7 +44,7 @@ type Session struct {
 	csrfValue      string
 }
 
-func (s *Session) get() (interface{}, error) {
+func (s *Session) get() (any, error) {
 	if s.v != nil {
 		return s.v, nil
 	}
@@ -79,7 +79,7 @@ func (s *Session) get() (interface{}, error) {
 	return s.v, nil
 }
 
-func (s *Session) new() (interface{}, error) {
+func (s *Session) new() (any, error) {
 	v := reflect.New(s.t)
 	s.v = v.Interface()
 
@@ -121,7 +121,7 @@ func (s *Session) ID() string {
 //		Id    string `dynamodbav:"sessionId,hashkey" tableName:"session"`
 //		Field string `dynamodbav:"key"`
 //	}
-func (s *Session) Get(key interface{}) interface{} {
+func (s *Session) Get(key any) any {
 	switch key.(type) {
 	case string:
 		return s.table.MustGet(s.v, key.(string))
@@ -139,7 +139,7 @@ func (s *Session) Get(key interface{}) interface{} {
 //		Id    string `dynamodbav:"sessionId,hashkey" tableName:"session"`
 //		Field string `dynamodbav:"key"`
 //	}
-func (s *Session) Set(key interface{}, val interface{}) {
+func (s *Session) Set(key any, val any) {
 	switch key.(type) {
 	case string:
 		a, ok := s.table.All[key.(string)]
@@ -167,7 +167,7 @@ func (s *Session) Set(key interface{}, val interface{}) {
 //		Id    string `dynamodbav:"sessionId,hashkey" tableName:"session"`
 //		Field string `dynamodbav:"key"`
 //	}
-func (s *Session) Delete(key interface{}) {
+func (s *Session) Delete(key any) {
 	switch key.(type) {
 	case string:
 		a, ok := s.table.All[key.(string)]
@@ -205,13 +205,13 @@ func (s *Session) Clear() {
 }
 
 // AddFlash is not supported at the moment.
-func (s *Session) AddFlash(value interface{}, vars ...string) {
+func (s *Session) AddFlash(value any, vars ...string) {
 	//TODO implement me
 	panic("implement me")
 }
 
 // Flashes is not supported at the moment.
-func (s *Session) Flashes(vars ...string) []interface{} {
+func (s *Session) Flashes(vars ...string) []any {
 	//TODO implement me
 	panic("implement me")
 }

@@ -1,3 +1,4 @@
+// Package sessions is a very opinionated gin session middleware with DynamoDB backend.
 package sessions
 
 import (
@@ -32,7 +33,7 @@ const (
 // or the tags fail validation, the function will panic.
 //
 // Use WithCSRF if you want Save to also create a new CSRF token if the session is new.
-func Sessions[T interface{}](name string, optFns ...func(*Session)) gin.HandlerFunc {
+func Sessions[T any](name string, optFns ...func(*Session)) gin.HandlerFunc {
 	table, err := ddb.NewTable(reflect.TypeFor[T](), func(options *ddb.TableOptions) {
 		options.Validator = validator
 	})
@@ -103,7 +104,7 @@ func Default(c *gin.Context) *Session {
 //	r.GET("/", func (c *gin.Context) {
 //		var s *MySession = Get[MySession](c)
 //	})
-func Get[T interface{}](c *gin.Context) *T {
+func Get[T any](c *gin.Context) *T {
 	v, err := c.MustGet(DefaultKey).(*Session).get()
 	if err != nil {
 		panic(err)
@@ -125,7 +126,7 @@ func Get[T interface{}](c *gin.Context) *T {
 //	r.GET("/", func (c *gin.Context) {
 //		var s *MySession = New[MySession](c)
 //	})
-func New[T interface{}](c *gin.Context) *T {
+func New[T any](c *gin.Context) *T {
 	v, err := c.MustGet(DefaultKey).(*Session).new()
 	if err != nil {
 		panic(err)
