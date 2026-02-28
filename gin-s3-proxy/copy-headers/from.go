@@ -1,5 +1,5 @@
-// Package s3headers provide convenient methods to copy request headers from gin.Context to an S3 GetObject or
-// HeadObject, and vice versa — from GetObject/HeadObject output to gin response.
+// Package copyheaders provide convenient methods to copy request headers from gin.Context to an S3 input (e.g.
+// GetObjectInput) and vice versa — from GetObjectOutput to gin response.
 //
 // These gin request headers are copied into S3 input parameters:
 //   - If-Match and If-None-Match
@@ -16,41 +16,18 @@
 //   - ETag
 //   - ExpiresString (preferred over deprecated Expires)
 //   - LastModified
-package s3headers
+package copyheaders
 
 import (
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/gin-gonic/gin"
 )
 
-// CopyToGetObjectInput copies the conditional request headers from gin.Context into the given GetObject input.
-func CopyToGetObjectInput(c *gin.Context, input *s3.GetObjectInput) *s3.GetObjectInput {
-	header := c.Request.Header
-	input.IfMatch = getIfMatch(header)
-	input.IfModifiedSince = getIfModifiedSince(header)
-	input.IfNoneMatch = getIfNoneMatch(header)
-	input.IfUnmodifiedSince = getIfUnmodifiedSince(header)
-	input.Range = getRange(header)
-	return input
-}
-
-// CopyToHeadObjectInput copies the conditional request headers from gin.Context into the given HeadObject input.
-func CopyToHeadObjectInput(c *gin.Context, input *s3.HeadObjectInput) *s3.HeadObjectInput {
-	header := c.Request.Header
-	input.IfMatch = getIfMatch(header)
-	input.IfModifiedSince = getIfModifiedSince(header)
-	input.IfNoneMatch = getIfNoneMatch(header)
-	input.IfUnmodifiedSince = getIfUnmodifiedSince(header)
-	input.Range = getRange(header)
-	return input
-}
-
-// CopyFromGetObjectOutput parses response headers from the given GetObject output and sets them as response headers.
-func CopyFromGetObjectOutput(c *gin.Context, output *s3.GetObjectOutput) {
+// FromGetObjectOutput parses response headers from the given GetObject output and sets them as response headers.
+func FromGetObjectOutput(c *gin.Context, output *s3.GetObjectOutput) {
 	if output.CacheControl != nil {
 		c.Header("Cache-Control", *output.CacheControl)
 	}
@@ -83,8 +60,8 @@ func CopyFromGetObjectOutput(c *gin.Context, output *s3.GetObjectOutput) {
 	}
 }
 
-// CopyFromHeadObjectOutput parses response headers from the given HeadObject output and sets them as response headers.
-func CopyFromHeadObjectOutput(c *gin.Context, output *s3.HeadObjectOutput) {
+// FromHeadObjectOutput parses response headers from the given HeadObject output and sets them as response headers.
+func FromHeadObjectOutput(c *gin.Context, output *s3.HeadObjectOutput) {
 	if output.CacheControl != nil {
 		c.Header("Cache-Control", *output.CacheControl)
 	}
@@ -117,54 +94,16 @@ func CopyFromHeadObjectOutput(c *gin.Context, output *s3.HeadObjectOutput) {
 	}
 }
 
-func getIfMatch(header http.Header) *string {
-	value := header.Get("If-Match")
-	if value == "" {
-		return nil
+// FromPutObjectOutput parses response headers from the given PutObject output and sets them as response headers.
+func FromPutObjectOutput(c *gin.Context, output *s3.PutObjectOutput) {
+	if output.ETag != nil {
+		c.Header("ETag", *output.ETag)
 	}
-	return &value
 }
 
-func getIfModifiedSince(header http.Header) *time.Time {
-	value := header.Get("If-Modified-Since")
-	if value == "" {
-		return nil
+// FromCompleteMultipartUploadOutput parses response headers from the given CompleteMultipartUpload output and sets them as response headers.
+func FromCompleteMultipartUploadOutput(c *gin.Context, output *s3.CompleteMultipartUploadOutput) {
+	if output.ETag != nil {
+		c.Header("ETag", *output.ETag)
 	}
-
-	t, err := http.ParseTime(value)
-	if err != nil {
-		return nil
-	}
-
-	return &t
-}
-
-func getIfNoneMatch(header http.Header) *string {
-	value := header.Get("If-None-Match")
-	if value == "" {
-		return nil
-	}
-	return &value
-}
-
-func getIfUnmodifiedSince(header http.Header) *time.Time {
-	value := header.Get("If-Unmodified-Since")
-	if value == "" {
-		return nil
-	}
-
-	t, err := http.ParseTime(value)
-	if err != nil {
-		return nil
-	}
-
-	return &t
-}
-
-func getRange(header http.Header) *string {
-	value := header.Get("Range")
-	if value == "" {
-		return nil
-	}
-	return &value
 }
