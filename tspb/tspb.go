@@ -1,3 +1,5 @@
+// Package tspb provides progress logger that become a progress bar in interactive mode (terminal present), or logs
+// at interval otherwise.
 package tspb
 
 import (

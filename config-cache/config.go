@@ -1,4 +1,4 @@
-// Package configcache provides a singleton cache to retrieve a default aws.Config instance for creating AWS SDK clients.
+// Package configcache provides a singleton cache to retrieve aws.Config instances for creating AWS SDK clients.
 //
 // The main method should explicitly create and cache a config with LoadDefaultConfig, LoadSharedConfigProfile, Set, or
 // Update. Whenever an aws.Config instance is needed, call Get or MustGet. Most libraries in go-aws-commons that can

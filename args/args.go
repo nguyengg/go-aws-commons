@@ -1,3 +1,4 @@
+// Package args provides an iterator to scan text lines from multiple sources.
 package args
 
 import (

@@ -61,7 +61,7 @@ AES key is retrieved from AWS Secrets Manager instead. Because each secret in AW
 pair of encoder/decoder will prefix the version Id to the opaque token (since the secret name and AWS account and region
 are not leaked, this should be OK). Be mindful of the cost of calling AWS Secrets Manager for every invocation. If
 running in AWS Lambda functions, you can make use of
-[Dynamic key with AWS Secrets Manager in Lambda functions](#dynamic-key-with-aws-secrets-manager-in-lambda-functions).
+[Key from AWS Parameters and Secrets Lambda Extensio](#key-from-aws-parameters-and-secrets-lambda-extension).
 
 ```go
 package main
@@ -95,11 +95,11 @@ func main() {
 }
 
 ```
+
 ### Key from AWS Parameters and Secrets Lambda Extension
 
-If running in AWS Lambda, this pair of encoder/decoder can make use of the AWS Parameters and Secrets Lambda Extension
-(https://docs.aws.amazon.com/secretsmanager/latest/userguide/retrieving-secrets_lambda.html) instead of directly using
-Secrets Manager SDK.
+If running in AWS Lambda, this pair of encoder/decoder can make use of the [AWS Parameters and Secrets Lambda Extension](https://docs.aws.amazon.com/lambda/latest/dg/with-secrets-manager.html#lambda-secrets-manager-extension-approach) 
+instead of directly using Secrets Manager SDK.
 
 ```go
 package main

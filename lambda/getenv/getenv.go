@@ -1,3 +1,5 @@
+// Package getenv decouples how to retrieve a variable of type string or binary with its source, which can be from
+// environment variable or from the AWS Parameter and Secrets Lambda extension either as a parameter or secret.
 package getenv
 
 import (

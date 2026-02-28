@@ -1,4 +1,4 @@
-# Implements io.Writer and io.ReaderFrom to upload to S3
+# Implements io.Writer and io.ReaderFrom for uploading to S3
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/nguyengg/go-aws-commons/s3writer.svg)](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/s3writer)
 

@@ -1,3 +1,5 @@
+// Package preconditions provides helper methods to parse and compare conditional headers such as If-Match,
+// If-None-Match, If-Modified-Since, and If-Unmodified-Since.
 package preconditions
 
 import (

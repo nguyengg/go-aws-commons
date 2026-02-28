@@ -1,3 +1,4 @@
+// Package errors provides convenient methods to extract status code and other metadata from AWS errors.
 package errors
 
 import (

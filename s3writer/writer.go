@@ -1,3 +1,4 @@
+// Package s3writer provides io.Writer and io.ReaderFrom implementations for uploading to S3.
 package s3writer
 
 import (

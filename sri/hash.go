@@ -1,3 +1,6 @@
+// Package sri provides Hash-based implementations to compute [Subresource Integrity (SRI)] and verification thereof.
+//
+// [Subresource Integrity (SRI)]: https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Subresource_Integrity
 package sri
 
 import (

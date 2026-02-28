@@ -1,3 +1,4 @@
+// Package executor is inspired by Java Executor and ThreadPoolExecutor, especially its RejectedExecutionHandler.
 package executor
 
 import (
@@ -24,6 +25,11 @@ type Executor interface {
 }
 
 // FullBufferPolicy controls the behaviour of the Executor when its task buffer is full.
+//
+// This is the equivalent of [RejectedExecutionHandler] for Java's [ThreadPoolExecutor].
+//
+// [RejectedExecutionHandler]: https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/RejectedExecutionHandler.html
+// [ThreadPoolExecutor]: https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/ThreadPoolExecutor.html
 type FullBufferPolicy int
 
 const (
@@ -32,6 +38,10 @@ const (
 	// This is the default behaviour.
 	CallerBlocksOnFullPolicy FullBufferPolicy = iota
 	// CallerRunsOnFullPolicy will execute the task in the same goroutine that calls Executor.Execute.
+	//
+	// This is the equivalent of Java's [CallerRunsPolicy].
+	//
+	// [CallerRunsPolicy]: https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/ThreadPoolExecutor.CallerRunsPolicy.html
 	CallerRunsOnFullPolicy
 	// TODO support DropOnFullPolicy to drop task overflow.
 )

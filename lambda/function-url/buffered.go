@@ -1,3 +1,4 @@
+// Package functionurl provides Lambda wrappers for Function URL gin handlers in either BUFFERED or STREAMING mode.
 package functionurl
 
 import (

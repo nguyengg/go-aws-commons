@@ -41,7 +41,7 @@ type ParameterSecretsExtensionClient struct {
 	// If nil, http.DefaultClient is used.
 	Client *http.Client
 
-	init sync.Once
+	once sync.Once
 }
 
 // DefaultParameterSecretsExtensionClient is the client used by package-level GetSecretValue and GetParameter.
@@ -53,7 +53,7 @@ func GetSecretValue(ctx context.Context, input *secretsmanager.GetSecretValueInp
 }
 
 func (l *ParameterSecretsExtensionClient) GetSecretValue(ctx context.Context, input *secretsmanager.GetSecretValueInput, _ ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error) {
-	l.init.Do(l.initFn)
+	l.init()
 
 	// https://docs.aws.amazon.com/secretsmanager/latest/userguide/retrieving-secrets_lambda.html
 	port := os.Getenv("PARAMETERS_SECRETS_EXTENSION_HTTP_PORT")
@@ -104,7 +104,7 @@ func GetParameter(ctx context.Context, input *ssm.GetParameterInput) (*ssm.GetPa
 }
 
 func (l *ParameterSecretsExtensionClient) GetParameter(ctx context.Context, input *ssm.GetParameterInput, _ ...func(*ssm.Options)) (*ssm.GetParameterOutput, error) {
-	l.init.Do(l.initFn)
+	l.init()
 
 	// https://docs.aws.amazon.com/systems-manager/latest/userguide/ps-integration-lambda-extensions.html
 	port := os.Getenv("PARAMETERS_SECRETS_EXTENSION_HTTP_PORT")
@@ -162,8 +162,10 @@ func (l *ParameterSecretsExtensionClient) GetParameter(ctx context.Context, inpu
 	return output, nil
 }
 
-func (l *ParameterSecretsExtensionClient) initFn() {
-	if l.Client == nil {
-		l.Client = http.DefaultClient
-	}
+func (l *ParameterSecretsExtensionClient) init() {
+	l.once.Do(func() {
+		if l.Client == nil {
+			l.Client = http.DefaultClient
+		}
+	})
 }

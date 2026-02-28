@@ -1,3 +1,4 @@
+// Package fmt provides [fmt.Formatter] implementations for printing/logging any data as JSON.
 package fmt
 
 import (

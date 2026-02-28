@@ -1,4 +1,4 @@
-# Lambda handler wrappers with sensible defaults
+# Lambda handler wrappers with sensible defaults and metrics integration
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/nguyengg/go-aws-commons/lambda.svg)](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/lambda)
 
@@ -29,17 +29,28 @@ func main() {
 		// see https://pkg.go.dev/github.com/nguyengg/go-aws-commons/metrics for examples of what is logged.
 		return events.DynamoDBEventResponse{}, nil
 	})
-}
 
+	// there are custom wrappers for SQS messages and DynamoDB stream events with batch item failure reporting.
+	lambda.StartSQSMessageHandler(func(ctx context.Context, message events.SQSMessage) error {
+		// if a non-nil error is returned, only that message should be retried.
+		// see https://docs.aws.amazon.com/lambda/latest/dg/example_serverless_SQS_Lambda_batch_item_failures_section.html
+		return nil
+	})
+	lambda.StartDynamodbEventHandler(func(ctx context.Context, record events.DynamoDBEventRecord) error {
+		// similarly, if a non-nil error is returned, only that record should be retried.
+		// see https://docs.aws.amazon.com/lambda/latest/dg/example_serverless_DynamoDB_Lambda_batch_item_failures_section.html
+		return nil
+	})
+}
 
 ```
 
 ## Gin adapter for Function URL
 
-A Gin adapter for API Gateway V1 and V2 are already available from github.com/awslabs/aws-lambda-go-api-proxy.
-The [gin-function-url](function-url) module (named `ginadapter`) provides an adapter specifically for Function URL
-events with both BUFFERED (which, technically, is no different from API Gateway V2/HTTP events) and RESPONSE_STREAM mode
-which uses [`github.com/aws/aws-lambda-go/lambdaurl`](https://github.com/aws/aws-lambda-go).
+A Gin adapter for API Gateway V1 and V2 are already available from [github.com/awslabs/aws-lambda-go-api-proxy](https://pkg.go.dev/github.com/awslabs/aws-lambda-go-api-proxy).
+The [function-url](function-url) module (`functionurl`) provides an adapter specifically for Function URL events with
+both BUFFERED (which, technically, is no different from API Gateway V2/HTTP events) and RESPONSE_STREAM mode
+which uses [`github.com/aws/aws-lambda-go/lambdaurl`](https://pkg.go.dev/github.com/aws/aws-lambda-go/lambdaurl) under the hood.
 
 ```go
 package main
@@ -83,26 +94,28 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/nguyengg/go-aws-commons/lambda"
+	. "github.com/nguyengg/go-aws-commons/must"
 )
 
 func main() {
 	// lambda.ParameterSecretsExtensionClient implements GetSecretValue and GetParameter so I can substitute the
-	// client to any code that needs it. the zero-value struct is ready for use.
+	// client to any code that needs it. The zero-value struct is ready for use so might as well use the package-level
+	// methods unless you want to customise the http.Client.
 	c := lambda.ParameterSecretsExtensionClient{}
 
 	// in my Lambda handler, instead of invoking Secrets Manager SDK directly, I can use the client from the
 	// extension package which makes use of the AWS Parameter and Secrets Lambda extension.
-	_, err := c.GetSecretValue(context.Background(), &secretsmanager.GetSecretValueInput{
+	getSecretValueOutput := Must(c.GetSecretValue(context.Background(), &secretsmanager.GetSecretValueInput{
 		SecretId:     aws.String("my-secret"),
 		VersionId:    nil,
 		VersionStage: nil,
-	})
+	}))
 
 	// I can also use the package-level methods which will use the default client.
-	_, err = lambda.GetParameter(context.Background(), &ssm.GetParameterInput{
+	getParameterOutput := Must(lambda.GetParameter(context.Background(), &ssm.GetParameterInput{
 		Name:           aws.String("my-parameter"),
 		WithDecryption: nil,
-	})
+	}))
 }
 
 ```

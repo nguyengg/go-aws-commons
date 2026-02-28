@@ -1,3 +1,4 @@
+// Package metrics provides Metrics instances to capture latency, timing, and counter metrics.
 package metrics
 
 import (

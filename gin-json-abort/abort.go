@@ -1,4 +1,4 @@
-// Package abort contains package-level methods to help abort a gin request using JSON response as well as logging.
+// Package abort provides package-level methods to help abort a gin request using JSON response as well as logging.
 //
 // The JSON response will be in this format (see H):
 //

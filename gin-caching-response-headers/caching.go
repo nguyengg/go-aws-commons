@@ -1,3 +1,4 @@
+// Package cachingheaders sets caching response headers (Cache-Control, ETag, and/or Last-Modified) on the gin response.
 package cachingheaders
 
 import (

@@ -1,3 +1,4 @@
+// Package must improves the error handling experience in Go by panicking instead.
 package must
 
 // Must panics if the second argument is a non-nil error.

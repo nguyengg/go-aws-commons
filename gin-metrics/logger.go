@@ -1,3 +1,4 @@
+// Package ginmetrics replaces gin.Logger and gin.Recovery with metrics.Metrics integration.
 package ginmetrics
 
 import (
