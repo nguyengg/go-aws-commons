@@ -1,4 +1,4 @@
-# Protect EC2 instances from being scaled down while busy
+# Protect AutoScaling EC2 instances from being scaled down while busy
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/nguyengg/go-aws-commons/scale-in-protection.svg)](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/scale-in-protection)
 
