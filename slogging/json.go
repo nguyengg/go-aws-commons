@@ -1,4 +1,4 @@
-package slog
+package slogging
 
 import (
 	"encoding/base64"
@@ -6,13 +6,14 @@ import (
 	"log/slog"
 )
 
-// JSONValue returns a slog.Value that will cause slog.JSONHandler to print the data as-is if it is valid JSON.
+// JSONValue returns a slog.Value that will cause slog.JSONHandler to print the []byte data as-is if it is valid JSON.
 //
 // If the logger isn't using slog.JSONHandler, or if data is not valid JSON, then the default logic for printing bytes
 // is used, which should be printing its base64 standard encoding.
 //
 // Useful if you want to log a response from a GET call for example that you expect to be JSON, but you don't want to
-// parse it into valid JSON first.
+// parse it into valid JSON first. If you have already unmarshalled []byte into a struct, or if you have some type that
+// implements json.Marshaler, you can just use slog.AnyValue directly on the struct.
 func JSONValue(data []byte) slog.Value {
 	if json.Valid(data) {
 		return slog.AnyValue(jsonValue{data})

@@ -1,4 +1,4 @@
-package slog
+package slogging
 
 import (
 	"encoding/json"

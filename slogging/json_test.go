@@ -1,4 +1,4 @@
-package slog
+package slogging
 
 import (
 	"bytes"
@@ -129,4 +129,32 @@ func TestJSONValue_NoJSONHandler(t *testing.T) {
 			})
 		})
 	}
+}
+
+func TestAnyJSONHandler(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		var buf bytes.Buffer
+		logger := slog.New(slog.NewJSONHandler(&buf, nil))
+		logger.Info("test", slog.Any("obj", struct {
+			Test string `json:"test"`
+		}{
+			Test: "test",
+		}))
+
+		assert.JSONEq(t, `{"time":"1999-12-31T16:00:00-08:00","level":"INFO","msg":"test","obj":{"test":"test"}}`, buf.String())
+	})
+}
+
+func TestAnyTextHandler(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		var buf bytes.Buffer
+		logger := slog.New(slog.NewTextHandler(&buf, nil))
+		logger.Info("test", slog.Any("obj", struct {
+			Test string `json:"test"`
+		}{
+			Test: "test",
+		}))
+
+		assert.Equal(t, "time=1999-12-31T16:00:00.000-08:00 level=INFO msg=test obj={Test:test}\n", buf.String())
+	})
 }

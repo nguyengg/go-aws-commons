@@ -1,7 +1,7 @@
 // Package slog provides utilities to attach and retrieve slog.Logger instances from context.
 //
 // It also provides slog.Value implementations for JSON and error (with stack trace) types.
-package slog
+package slogging
 
 import (
 	"context"
@@ -15,15 +15,21 @@ func WithContext(ctx context.Context, logger *slog.Logger) context.Context {
 	return context.WithValue(ctx, &loggerKey{}, logger)
 }
 
-// FromContext retrieves the slog.Logger instance that was attached with WithContext.
+// Get retrieves the slog.Logger instance that was attached with WithContext.
 //
 // If none is available, slog.Default is returned.
-func FromContext(ctx context.Context) *slog.Logger {
+func Get(ctx context.Context) *slog.Logger {
 	if logger, ok := ctx.Value(&loggerKey{}).(*slog.Logger); ok {
 		return logger
 	}
 
 	return slog.Default()
+}
+
+// TryGet is a variant of Get that returns (nil, false) if no instance was attached.
+func TryGet(ctx context.Context) (*slog.Logger, bool) {
+	logger, ok := ctx.Value(&loggerKey{}).(*slog.Logger)
+	return logger, ok
 }
 
 // UpdateContext retrieves the slog.Logger instance that was attached with WithContext, applies changes to that instance
