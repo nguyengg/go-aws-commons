@@ -51,6 +51,42 @@ func TestRequireGroupMembership_OK(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
+func TestRequireGroupMembership_DeferredForbidden(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, r := gin.CreateTestContext(w)
+
+	r.GET("/:org/:user", MustHave(func(c *gin.Context) (authenticated bool, groups Groups) {
+		// user doesn't belong to hr_admin or hr_readonly.
+		return true, []string{"freelance"}
+	}, Deferred(func(c *gin.Context) Rule {
+		org := c.Param("org")
+		return OneOf(org+"_admin", org+"_readOnly")
+	})))
+	c.Request, _ = http.NewRequest(http.MethodGet, "/hr/john", nil)
+	r.ServeHTTP(w, c.Request)
+
+	assert.Equal(t, http.StatusForbidden, w.Code)
+}
+
+func TestRequireGroupMembership_DeferredOK(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, r := gin.CreateTestContext(w)
+
+	r.GET("/:org/:user", MustHave(func(c *gin.Context) (authenticated bool, groups Groups) {
+		// user belongs to hr_readOnly which is allowed to see all users under /hr org.
+		return true, []string{"hr_readOnly"}
+	}, Deferred(func(c *gin.Context) Rule {
+		org := c.Param("org")
+		return OneOf(org+"_admin", org+"_readOnly")
+	})))
+	c.Request, _ = http.NewRequest(http.MethodGet, "/hr/john", nil)
+	r.ServeHTTP(w, c.Request)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
 func TestRequireGroupMembership_NoRule(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()

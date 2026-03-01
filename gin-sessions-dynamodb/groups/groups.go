@@ -46,16 +46,20 @@ import (
 // returns true as its first return value), the request will not be rejected.
 func MustHave(fn func(*gin.Context) (authenticated bool, groups Groups), rule Rule, more ...Rule) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		r := (&rules{
+		r := &rules{
+			c:                   c,
 			unauthorizedHandler: defaultUnauthorizedHandler,
 			forbiddenHandler:    defaultForbiddenHandler,
-		}).apply(rule, more...)
+		}
 
+		// check for unauthorized status first before applying the rules.
 		ok, groups := fn(c)
 		if !ok {
 			r.unauthorizedHandler(c)
 			return
 		}
+
+		r.apply(rule, more...)
 
 		if !r.test(groups) {
 			r.forbiddenHandler(c)
@@ -88,6 +92,8 @@ func (groups Groups) Test(rule Rule, more ...Rule) bool {
 }
 
 // Rule can only be either AllOf or OneOf.
+//
+// It should be easy to add And/Or conditions but I don't have a need for that at the moment :D.
 type Rule func(*rules)
 
 // AllOf adds a rule that the user must belong to all the groups specified here.
@@ -120,6 +126,20 @@ func OneOf(first, second string, more ...string) Rule {
 	}
 }
 
+// Deferred allows you to create a dependent Rule.
+//
+// For example, if the request is for a resource in group A or B, you can use Deferred to determine whether user needs
+// to be in group A or B and returns the rule accordingly.
+//
+// Deferred rules have no effect on Groups.Test because there is no request to defer to.
+func Deferred(fn func(c *gin.Context) Rule) Rule {
+	return func(r *rules) {
+		if r.c != nil {
+			fn(r.c)(r)
+		}
+	}
+}
+
 // WithUnauthorizedHandler can be used to customise the response when the session has no user.
 //
 // By default, [gin.Context.AbortWithStatus] is called passing http.StatusUnauthorized.
@@ -148,6 +168,7 @@ func defaultForbiddenHandler(c *gin.Context) {
 
 // rules contains all the rules including response handlers.
 type rules struct {
+	c                   *gin.Context
 	allOf               map[string]bool
 	oneOf               *node
 	unauthorizedHandler func(*gin.Context)
