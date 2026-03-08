@@ -1,4 +1,4 @@
-package mapper
+package ddb
 
 import (
 	"context"
@@ -9,25 +9,24 @@ import (
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/internal/untyped"
 )
 
-// Put uses [DynamoDB PutItem] to create a new item, or replace an old item with a new item.
+// Put is a wrapper around [mapper.Mapper.Put].
 //
-// [DynamoDB PutItem] uses clobbering behaviour: the item argument is marshaled with [Options.Encoder] to produce the
-// [dynamodb.PutItemInput.Item] that completely replaces or adds a new item in DynamoDB. As a result, Mapper.Put differs
-// from [Mapper.Update] on how optimistic locking and timestamp generations work while preparing for the
-// [dynamodb.Client.PutItem] call:
-//   - The item's version will be updated to the next value using [Options.NextVersion]. If the original version is the
-//     zero value, `attribute_not_exists(#hashkey)` is the [condition expression] to prevent overwriting an existing
-//     item; otherwise, `#version = :version` is used. This logic can be disabled with
-//     [PutOptions.DisableOptimisticLocking].
-//   - The item's created time is only updated when the original value is the zero value; its modified time is always
-//     updated to [time.Now].
+// The item argument must be parseable by [mapper.New], and must be a struct pointer since the struct's fields may be
+// modified on success.
 //
-// Any non-nil error will restore the item argument to its original state.
-//
-// [DynamoDB PutItem]: https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_PutItem.html
-// [condition expression]: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.OperatorsAndFunctions.html
-func (m *Mapper[T]) Put(ctx context.Context, item *T, optFns ...func(opts *PutOptions)) (*dynamodb.PutItemOutput, error) {
-	return m.Mapper.Put(ctx, item, internal.ApplyOpts(&PutOptions{}, optFns...).CopyTo)
+// [DefaultClientProvider] is used to retrieve the DynamoDB client to make the service calls.
+func Put(ctx context.Context, item any, optFns ...func(opts *PutOptions)) (*dynamodb.PutItemOutput, error) {
+	client, err := DefaultClientProvider.Provide(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	m, err := untyped.NewFromItem(item, func(opts *untyped.Options) { opts.Client = client })
+	if err != nil {
+		return nil, err
+	}
+
+	return m.Put(ctx, item, internal.ApplyOpts(&PutOptions{}, optFns...).CopyTo)
 }
 
 // PutOptions customises [Put].
@@ -54,10 +53,6 @@ func (opts *PutOptions) CopyTo(untypedOpts *untyped.PutOptions) {
 	untypedOpts.OptFns = opts.optFns
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Common options.
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // WithTableNameOverride overrides the table name.
 func (opts *PutOptions) WithTableNameOverride(tableName string) *PutOptions {
 	opts.tableName = &tableName
@@ -80,10 +75,6 @@ func (opts *PutOptions) WithClientOptions(optFns ...func(opts *dynamodb.Options)
 	opts.optFns = optFns
 	return opts
 }
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Conditional options
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // And adds an [expression.And] to the [condition expression].
 //

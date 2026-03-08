@@ -1,4 +1,4 @@
-package mapper
+package ddb
 
 import (
 	"context"
@@ -9,16 +9,23 @@ import (
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/internal/untyped"
 )
 
-// Delete uses [DynamoDB DeleteItem] to delete a single item.
+// Delete is a wrapper around [mapper.Mapper.Delete].
 //
-// The item argument will not be modified while preparing for the [dynamodb.Client.DeleteItem] call.
+// The item argument must be a struct or struct pointer that is parseable by [mapper.New].
 //
-// If item's version attribute is zero value, no condition will be added. Otherwise, a `#version = :eversion` condition
-// will be added.
-//
-// [DynamoDB DeleteItem]: https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_DeleteItem.html
-func (m *Mapper[T]) Delete(ctx context.Context, item *T, optFns ...func(opts *DeleteOptions)) (*dynamodb.DeleteItemOutput, error) {
-	return m.Mapper.Delete(ctx, item, internal.ApplyOpts(&DeleteOptions{}, optFns...).CopyTo)
+// [DefaultClientProvider] is used to retrieve the DynamoDB client to make the service calls.
+func Delete(ctx context.Context, item any, optFns ...func(opts *DeleteOptions)) (*dynamodb.DeleteItemOutput, error) {
+	client, err := DefaultClientProvider.Provide(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	m, err := untyped.NewFromItem(item, func(opts *untyped.Options) { opts.Client = client })
+	if err != nil {
+		return nil, err
+	}
+
+	return m.Delete(ctx, item, internal.ApplyOpts(&DeleteOptions{}, optFns...).CopyTo)
 }
 
 // DeleteOptions customises Delete.

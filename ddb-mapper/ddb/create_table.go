@@ -1,4 +1,4 @@
-package mapper
+package ddb
 
 import (
 	"context"
@@ -9,15 +9,23 @@ import (
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/internal/untyped"
 )
 
-// CreateTable uses [DynamoDB CreateTable] to add a new table and wait for the table to become active.
+// CreateTable is a wrapper around [mapper.Mapper.CreateTable].
 //
-// By default, [dynamodb.CreateTableInput.BillingMode] is set to [types.BillingModePayPerRequest] so that optFns is
-// optional; otherwise, you'll have to explicitly provide [dynamodb.CreateTableInput.ProvisionedThroughput] for the
-// input parameters to be valid.
+// The item argument must be a struct or struct pointer that is parseable by [mapper.New].
 //
-// [DynamoDB CreateTable]: https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_CreateTable.html
-func (m *Mapper[T]) CreateTable(ctx context.Context, optFns ...func(opts *CreateTableOptions)) error {
-	return m.Mapper.CreateTable(ctx, internal.ApplyOpts(&CreateTableOptions{}, optFns...).CopyTo)
+// [DefaultClientProvider] is used to retrieve the DynamoDB client to make the service calls.
+func CreateTable(ctx context.Context, item any, optFns ...func(opts *CreateTableOptions)) error {
+	client, err := DefaultClientProvider.Provide(ctx)
+	if err != nil {
+		return err
+	}
+
+	m, err := untyped.NewFromItem(item, func(opts *untyped.Options) { opts.Client = client })
+	if err != nil {
+		return err
+	}
+
+	return m.CreateTable(ctx, internal.ApplyOpts(&CreateTableOptions{}, optFns...).CopyTo)
 }
 
 // CreateTableOptions customises [CreateTable].

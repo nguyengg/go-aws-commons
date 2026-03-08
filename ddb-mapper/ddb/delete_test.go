@@ -37,7 +37,7 @@ func TestDelete(t *testing.T) {
 	require.NoError(t, err)
 
 	// delete with ALL_OLD return values.
-	deleteItemOutput, err := Delete(t.Context(), &Item{ID: "test", Version: 3}, func(opts *mapper.DeleteOptions) {
+	deleteItemOutput, err := Delete(t.Context(), &Item{ID: "test", Version: 3}, func(opts *DeleteOptions) {
 		opts.WithInputOptions(func(input *dynamodb.DeleteItemInput) {
 			input.ReturnValues = types.ReturnValueAllOld
 		})
@@ -76,7 +76,7 @@ func TestMapper_Delete(t *testing.T) {
 	require.NoError(t, err)
 
 	// delete with ALL_OLD return values.
-	deleteItemOutput, err := m.Delete(t.Context(), &Item{ID: "test", Version: 3}, func(opts *mapper.DeleteOptions) {
+	deleteItemOutput, err := m.Delete(t.Context(), &Item{ID: "test", Version: 3}, func(opts *DeleteOptions) {
 		opts.WithInputOptions(func(input *dynamodb.DeleteItemInput) {
 			input.ReturnValues = types.ReturnValueAllOld
 		})

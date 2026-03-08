@@ -1,4 +1,4 @@
-package mapper
+package ddb
 
 import (
 	"context"
@@ -8,17 +8,24 @@ import (
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/internal/untyped"
 )
 
-// Get uses [DynamoDB GetItem] to retrieve attributes for the specified item.
+// Get is a wrapper around [mapper.Mapper.Get].
 //
-// The item argument must have its key attributes filled out to produce the [dynamodb.GetItemInput.Key] field. On
-// success, all attributes from response ([dynamodb.GetItemOutput.Item]) are unmarshalled with [Options.Decoder] and set
-// to the respective item's fields. Any field that doesn't exist in the response, possibly due to projection expression,
-// will be set to their zero values. If the request did not succeed, or if the response is empty
-// (`len(getItemOutput.Item) == 0` indicates item doesn't exist), the item will not be modified.
+// The item argument must be parseable by [mapper.New], and must be a struct pointer since the struct's fields may be
+// modified on success.
 //
-// [DynamoDB GetItem]: https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_GetItem.html
-func (m *Mapper[T]) Get(ctx context.Context, item *T, optFns ...func(opts *GetOptions)) (*dynamodb.GetItemOutput, error) {
-	return m.Mapper.Get(ctx, item, internal.ApplyOpts(&GetOptions{}, optFns...).CopyTo)
+// [DefaultClientProvider] is used to retrieve the DynamoDB client to make the service calls.
+func Get(ctx context.Context, item any, optFns ...func(opts *GetOptions)) (*dynamodb.GetItemOutput, error) {
+	client, err := DefaultClientProvider.Provide(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	m, err := untyped.NewFromItem(item, func(opts *untyped.Options) { opts.Client = client })
+	if err != nil {
+		return nil, err
+	}
+
+	return m.Get(ctx, item, internal.ApplyOpts(&GetOptions{}, optFns...).CopyTo)
 }
 
 // GetOptions customises Get.
@@ -35,10 +42,6 @@ func (opts *GetOptions) CopyTo(untypedOpts *untyped.GetOptions) {
 	untypedOpts.InputFn = opts.inputFn
 	untypedOpts.OptFns = opts.optFns
 }
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Common options.
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // WithTableNameOverride overrides the table name.
 func (opts *GetOptions) WithTableNameOverride(tableName string) *GetOptions {
