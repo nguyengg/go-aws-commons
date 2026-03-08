@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/nguyengg/go-aws-commons/ddb-mapper"
-	. "github.com/nguyengg/go-aws-commons/ddb-mapper/ddb"
+	"github.com/nguyengg/go-aws-commons/ddb-mapper/ddb"
 	. "github.com/nguyengg/go-aws-commons/ddb-mapper/internal/ddb-local-test"
 	"github.com/stretchr/testify/require"
 )
@@ -15,9 +15,9 @@ func TestCreateTable(t *testing.T) {
 	}
 
 	client := Setup(t)
-	DefaultClientProvider = StaticClientProvider{Client: client}
+	ddb.DefaultClientProvider = ddb.StaticClientProvider{Client: client}
 
-	require.NoError(t, CreateTable(t.Context(), Item{}))
+	require.NoError(t, ddb.CreateTable(t.Context(), Item{}))
 }
 
 func TestMapper_CreateTable(t *testing.T) {

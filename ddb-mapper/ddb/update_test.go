@@ -8,7 +8,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	. "github.com/nguyengg/go-aws-commons/ddb-mapper/ddb"
+	"github.com/nguyengg/go-aws-commons/ddb-mapper/ddb"
 	ddbtypes "github.com/nguyengg/go-aws-commons/ddb-mapper/ddb/types"
 	. "github.com/nguyengg/go-aws-commons/ddb-mapper/internal/ddb-local-test"
 	mappertypes "github.com/nguyengg/go-aws-commons/ddb-mapper/types"
@@ -27,10 +27,10 @@ func TestUpdate(t *testing.T) {
 	}
 
 	client := Setup(t, Item{})
-	DefaultClientProvider = StaticClientProvider{Client: client}
+	ddb.DefaultClientProvider = ddb.StaticClientProvider{Client: client}
 
 	// first UpdateItem will create it with only Version, CreatedTime, and ModifiedTime filled out.
-	_, err := Update(t.Context(), &Item{ID: "test"})
+	_, err := ddb.Update(t.Context(), &Item{ID: "test"})
 	require.NoError(t, err)
 	avM := local.GetItem(t, client, "Items", "id", "test")
 	assert.ElementsMatch(t, []string{"id", "version", "modifiedTime"}, slices.Collect(maps.Keys(avM)))
@@ -40,7 +40,7 @@ func TestUpdate(t *testing.T) {
 
 	// second UpdateItem, I'll manually update data and createdTime to old modifiedTime.
 	oldModifiedTime := item.ModifiedTime
-	_, err = Update(t.Context(), item, func(opts *UpdateOptions) {
+	_, err = ddb.Update(t.Context(), item, func(opts *ddb.UpdateOptions) {
 		opts.
 			Set("data", "i'm a teapot").
 			Set("createdTime", ddbtypes.UnixTime(oldModifiedTime))
@@ -66,14 +66,14 @@ func TestUpdate_UpdateBehaviourDefault(t *testing.T) {
 	}
 
 	client := Setup(t, Item{})
-	DefaultClientProvider = StaticClientProvider{Client: client}
+	ddb.DefaultClientProvider = ddb.StaticClientProvider{Client: client}
 
-	_, err := Update(t.Context(), &Item{
+	_, err := ddb.Update(t.Context(), &Item{
 		ID:          "test",
 		Data:        "hello, world!",
 		Version:     0,
 		CreatedTime: ddbtypes.UnixTime(time.Now()),
-	}, func(opts *UpdateOptions) {
+	}, func(opts *ddb.UpdateOptions) {
 		opts.WithUpdateBehaviour(mappertypes.UpdateBehaviourDefault)
 	})
 	require.NoError(t, err)
@@ -94,14 +94,14 @@ func TestUpdate_UpdateBehaviourAsTagged(t *testing.T) {
 	}
 
 	client := Setup(t, Item{})
-	DefaultClientProvider = StaticClientProvider{Client: client}
+	ddb.DefaultClientProvider = ddb.StaticClientProvider{Client: client}
 
-	_, err := Update(t.Context(), &Item{
+	_, err := ddb.Update(t.Context(), &Item{
 		ID:          "test",
 		Data:        "hello, world!",
 		Version:     0,
 		CreatedTime: ddbtypes.UnixTime(time.Now()),
-	}, func(opts *UpdateOptions) {
+	}, func(opts *ddb.UpdateOptions) {
 		opts.WithUpdateBehaviour(mappertypes.UpdateBehaviourAsTagged)
 	})
 	require.NoError(t, err)
@@ -120,10 +120,10 @@ func TestUpdateReturnAllNewValues(t *testing.T) {
 	}
 
 	client := Setup(t, Item{})
-	DefaultClientProvider = StaticClientProvider{Client: client}
+	ddb.DefaultClientProvider = ddb.StaticClientProvider{Client: client}
 
 	// the first Update has non-empty data.
-	_, err := Update(t.Context(), &Item{ID: "test"}, func(opts *UpdateOptions) {
+	_, err := ddb.Update(t.Context(), &Item{ID: "test"}, func(opts *ddb.UpdateOptions) {
 		opts.Set("data", "hello, world!")
 	})
 	require.NoError(t, err)
@@ -131,7 +131,7 @@ func TestUpdateReturnAllNewValues(t *testing.T) {
 
 	// the second Update only changes the version, but because of ALL_NEW return values, item is updated with correct data.
 	item := &Item{ID: "test", Version: 1}
-	_, err = UpdateReturnAllNewValues(t.Context(), item)
+	_, err = ddb.UpdateReturnAllNewValues(t.Context(), item)
 	assert.Equal(t, &Item{
 		ID:      "test",
 		Data:    "hello, world!",

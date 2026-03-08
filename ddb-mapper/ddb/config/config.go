@@ -1,4 +1,4 @@
-package ddb
+package config
 
 import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -33,4 +33,9 @@ type Config struct {
 	//
 	// The function is given the exact same item passed into the operations that support optimistic locking.
 	VersionUpdater func(item any)
+}
+
+// CopyTo copies the fields of this config to the other argument.
+func (c *Config) CopyTo(other *Config) {
+	*other = *c
 }

@@ -6,7 +6,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper"
-	. "github.com/nguyengg/go-aws-commons/ddb-mapper/ddb"
+	"github.com/nguyengg/go-aws-commons/ddb-mapper/ddb"
 	ddbtypes "github.com/nguyengg/go-aws-commons/ddb-mapper/ddb/types"
 	. "github.com/nguyengg/go-aws-commons/ddb-mapper/internal/ddb-local-test"
 	local "github.com/nguyengg/go-dynamodb-local"
@@ -24,10 +24,10 @@ func Test_Put(t *testing.T) {
 	}
 
 	client := Setup(t, Item{})
-	DefaultClientProvider = &StaticClientProvider{Client: client}
+	ddb.DefaultClientProvider = &ddb.StaticClientProvider{Client: client}
 
 	item := &Item{ID: "test", Data: "my-data"}
-	_, err := Put(t.Context(), item)
+	_, err := ddb.Put(t.Context(), item)
 	require.NoError(t, err)
 
 	// createdTime has been truncated to epoch second to match what would be decoded from ddb due to unixtime tag.
@@ -58,7 +58,7 @@ func Test_Put(t *testing.T) {
 
 	// second Put will increase version to 2, and only update modified timestamp.
 	item.Data = "new-data"
-	_, err = Put(t.Context(), item)
+	_, err = ddb.Put(t.Context(), item)
 	require.NoError(t, err)
 	assert.Equal(t, item.CreatedTime, createdTime)
 	assert.True(t, item.ModifiedTime.After(modifiedTime))
@@ -72,7 +72,7 @@ func Test_Put(t *testing.T) {
 
 	// now if we change the version to 3, the PutItem will fail due to ConditionalCheckFailedException.
 	item.Version = 3
-	_, err = Put(t.Context(), item)
+	_, err = ddb.Put(t.Context(), item)
 	var ccfe *types.ConditionalCheckFailedException
 	require.ErrorAs(t, err, &ccfe)
 }

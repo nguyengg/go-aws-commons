@@ -9,6 +9,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/ddb"
+	"github.com/nguyengg/go-aws-commons/ddb-mapper/ddb/config"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/internal"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/internal/untyped"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/types"
@@ -20,7 +21,7 @@ import (
 type Mapper[T any] struct {
 	*untyped.Mapper
 
-	ddb.Config
+	config.Config
 }
 
 // CreateTable uses [DynamoDB CreateTable] to add a new table and wait for the table to become active.

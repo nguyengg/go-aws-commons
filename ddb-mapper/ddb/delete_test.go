@@ -8,7 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper"
-	. "github.com/nguyengg/go-aws-commons/ddb-mapper/ddb"
+	"github.com/nguyengg/go-aws-commons/ddb-mapper/ddb"
 	. "github.com/nguyengg/go-aws-commons/ddb-mapper/internal/ddb-local-test"
 	. "github.com/nguyengg/go-aws-commons/must"
 	"github.com/stretchr/testify/require"
@@ -22,10 +22,10 @@ func TestDelete(t *testing.T) {
 	}
 
 	client := Setup(t, Item{})
-	DefaultClientProvider = &StaticClientProvider{Client: client}
+	ddb.DefaultClientProvider = &ddb.StaticClientProvider{Client: client}
 
 	// deleting an item that doesn't exist do nothing.
-	_, err := Delete(t.Context(), &Item{ID: "tes"})
+	_, err := ddb.Delete(t.Context(), &Item{ID: "tes"})
 	require.NoError(t, err)
 
 	// put an item to test deletion.
@@ -37,7 +37,7 @@ func TestDelete(t *testing.T) {
 	require.NoError(t, err)
 
 	// delete with ALL_OLD return values.
-	deleteItemOutput, err := Delete(t.Context(), &Item{ID: "test", Version: 3}, func(opts *DeleteOptions) {
+	deleteItemOutput, err := ddb.Delete(t.Context(), &Item{ID: "test", Version: 3}, func(opts *ddb.DeleteOptions) {
 		opts.WithInputOptions(func(input *dynamodb.DeleteItemInput) {
 			input.ReturnValues = types.ReturnValueAllOld
 		})
@@ -76,7 +76,7 @@ func TestMapper_Delete(t *testing.T) {
 	require.NoError(t, err)
 
 	// delete with ALL_OLD return values.
-	deleteItemOutput, err := m.Delete(t.Context(), &Item{ID: "test", Version: 3}, func(opts *DeleteOptions) {
+	deleteItemOutput, err := m.Delete(t.Context(), &Item{ID: "test", Version: 3}, func(opts *ddb.DeleteOptions) {
 		opts.WithInputOptions(func(input *dynamodb.DeleteItemInput) {
 			input.ReturnValues = types.ReturnValueAllOld
 		})
