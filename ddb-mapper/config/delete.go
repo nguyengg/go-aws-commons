@@ -1,35 +1,19 @@
-package ddb
+package config
 
 import (
-	"context"
-
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	"github.com/nguyengg/go-aws-commons/ddb-mapper/config"
-	"github.com/nguyengg/go-aws-commons/ddb-mapper/internal"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/internal/client"
-	"github.com/nguyengg/go-aws-commons/ddb-mapper/model"
 )
 
-// Delete is a wrapper around [mapper.Mapper.Delete].
-//
-// The item argument must be a struct or struct pointer that is parseable by [mapper.New].
-//
-// [DefaultClientProvider] is used to retrieve the DynamoDB client to make the service calls.
-func Delete(ctx context.Context, item any, optFns ...func(opts *DeleteOptions)) (_ *dynamodb.DeleteItemOutput, err error) {
-	c := internal.ApplyOpts(&DeleteOptions{Config: defaultConfig(ctx)}, optFns...).Resolve()
-	if c.TableModel, err = model.NewForTypeOf(item); err != nil {
-		return nil, err
-	}
-
-	return c.Execute(ctx, item)
-}
-
-// DeleteOptions customises Delete.
+// DeleteOptions customises a single [DynamoDB DeleteItem] call.
 //
 // DeleteOptions can be modified either by changing the fields directly or via chaining With methods.
+//
+// [DynamoDB DeleteItem]: https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_DeleteItem.html
 type DeleteOptions struct {
-	config.Config
+	// Config customises these settings at the operation level.
+	Config
 
 	// DisableOptimisticLocking, if true, will disable optimistic locking functionality.
 	DisableOptimisticLocking bool
@@ -61,7 +45,12 @@ func (opts *DeleteOptions) WithClientOptions(optFns ...func(opts *dynamodb.Optio
 // Resolve creates the internal [client.ItemDeleter].
 func (opts *DeleteOptions) Resolve() *client.ItemDeleter {
 	return &client.ItemDeleter{
-		Config:                   opts.Config,
+		Config: client.Config{
+			Client:         opts.Client,
+			Encoder:        opts.Encoder,
+			Decoder:        opts.Decoder,
+			VersionUpdater: opts.VersionUpdater,
+		},
 		DisableOptimisticLocking: opts.DisableOptimisticLocking,
 		TableNameOverride:        opts.tableName,
 		Condition:                opts.condition,

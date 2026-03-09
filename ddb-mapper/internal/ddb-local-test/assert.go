@@ -53,3 +53,12 @@ func AsUnixTime(t *testing.T, value types.AttributeValue) time.Time {
 	require.NoErrorf(t, err, "parse value.N (%q) as integer error", asN.Value)
 	return time.Unix(epochSecond, 0)
 }
+
+// MustMarshalToM requires that the given item marshals successfully to M data type.
+func MustMarshalToM(t *testing.T, item any) map[string]types.AttributeValue {
+	av, err := attributevalue.Marshal(item)
+	require.NoErrorf(t, err, "Marshal(%T)", item)
+	avM, ok := av.(*types.AttributeValueMemberM)
+	require.Truef(t, ok, "item of type %T did not marshal to M data type; got %T instead", item, av)
+	return avM.Value
+}

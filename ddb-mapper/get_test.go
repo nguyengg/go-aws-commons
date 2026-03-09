@@ -4,13 +4,10 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper"
 	. "github.com/nguyengg/go-aws-commons/ddb-mapper/internal/ddb-local-test"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/mapper"
-	. "github.com/nguyengg/go-aws-commons/must"
 	"github.com/stretchr/testify/require"
 )
 
@@ -27,7 +24,7 @@ func TestGet(t *testing.T) {
 	want := &Item{ID: "test", Data: "i'm a teapot", Version: 3}
 	_, err := client.PutItem(t.Context(), &dynamodb.PutItemInput{
 		TableName: aws.String("Items"),
-		Item:      Must(attributevalue.Marshal(want)).(*types.AttributeValueMemberM).Value,
+		Item:      MustMarshalToM(t, want),
 	})
 	require.NoError(t, err)
 
@@ -54,7 +51,7 @@ func TestMapper_Get(t *testing.T) {
 	want := &Item{ID: "test", Data: "i'm a teapot", Version: 3}
 	_, err = client.PutItem(t.Context(), &dynamodb.PutItemInput{
 		TableName: aws.String("Items"),
-		Item:      Must(attributevalue.Marshal(want)).(*types.AttributeValueMemberM).Value,
+		Item:      MustMarshalToM(t, want),
 	})
 	require.NoError(t, err)
 

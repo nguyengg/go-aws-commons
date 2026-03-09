@@ -8,7 +8,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	"github.com/nguyengg/go-aws-commons/ddb-mapper/config"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/internal"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/model"
 )
@@ -17,7 +16,7 @@ import (
 //
 // [DynamoDB PutItem]: https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_PutItem.html
 type ItemPutter struct {
-	config.Config
+	Config
 	*model.TableModel // model MUST NOT be mutated.
 
 	DisableOptimisticLocking       bool
@@ -29,8 +28,8 @@ type ItemPutter struct {
 }
 
 func (c *ItemPutter) Execute(ctx context.Context, item any) (putItemInput *dynamodb.PutItemOutput, err error) {
-	if err = initConfig(ctx, &c.Config); err != nil {
-		return nil, err
+	if err = c.init(ctx); err != nil {
+		return
 	}
 
 	v, ptr, err := internal.IndirectValueIsStruct(item, true, c.StructType)
@@ -56,7 +55,7 @@ func (c *ItemPutter) Execute(ctx context.Context, item any) (putItemInput *dynam
 	}
 
 	input := &dynamodb.PutItemInput{TableName: aws.String(c.TableName)}
-	if input.Item, err = c.Encode(item, c.CopyTo); err != nil {
+	if input.Item, err = c.EncodeWith(item, c.Encoder); err != nil {
 		return nil, err
 	}
 

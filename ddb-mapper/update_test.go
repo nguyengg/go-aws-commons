@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper"
+	"github.com/nguyengg/go-aws-commons/ddb-mapper/config"
 	. "github.com/nguyengg/go-aws-commons/ddb-mapper/internal/ddb-local-test"
 	ddbtypes "github.com/nguyengg/go-aws-commons/ddb-mapper/types"
 	local "github.com/nguyengg/go-dynamodb-local"
@@ -39,7 +40,7 @@ func TestUpdate(t *testing.T) {
 
 	// second UpdateItem, I'll manually update data and createdTime to old modifiedTime.
 	oldModifiedTime := item.ModifiedTime
-	_, err = ddb.Update(t.Context(), item, func(opts *ddb.UpdateOptions) {
+	_, err = ddb.Update(t.Context(), item, func(opts *config.UpdateOptions) {
 		opts.
 			Set("data", "i'm a teapot").
 			Set("createdTime", ddbtypes.UnixTime(oldModifiedTime))
@@ -72,7 +73,7 @@ func TestUpdate_UpdateBehaviourDefault(t *testing.T) {
 		Data:        "hello, world!",
 		Version:     0,
 		CreatedTime: ddbtypes.UnixTime(time.Now()),
-	}, func(opts *ddb.UpdateOptions) {
+	}, func(opts *config.UpdateOptions) {
 		opts.WithUpdateBehaviour(ddbtypes.UpdateBehaviourDefault)
 	})
 	require.NoError(t, err)
@@ -100,7 +101,7 @@ func TestUpdate_UpdateBehaviourAsTagged(t *testing.T) {
 		Data:        "hello, world!",
 		Version:     0,
 		CreatedTime: ddbtypes.UnixTime(time.Now()),
-	}, func(opts *ddb.UpdateOptions) {
+	}, func(opts *config.UpdateOptions) {
 		opts.WithUpdateBehaviour(ddbtypes.UpdateBehaviourAsTagged)
 	})
 	require.NoError(t, err)
@@ -122,7 +123,7 @@ func TestUpdateReturnAllNewValues(t *testing.T) {
 	ddb.DefaultClientProvider = ddb.StaticClientProvider{Client: client}
 
 	// the first Update has non-empty data.
-	_, err := ddb.Update(t.Context(), &Item{ID: "test"}, func(opts *ddb.UpdateOptions) {
+	_, err := ddb.Update(t.Context(), &Item{ID: "test"}, func(opts *config.UpdateOptions) {
 		opts.Set("data", "hello, world!")
 	})
 	require.NoError(t, err)

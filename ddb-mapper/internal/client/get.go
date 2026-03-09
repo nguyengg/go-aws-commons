@@ -8,7 +8,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"github.com/nguyengg/go-aws-commons/ddb-mapper/config"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/internal"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/model"
 )
@@ -17,7 +16,7 @@ import (
 //
 // [DynamoDB GetItem]: https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_GetItem.html
 type ItemGetter struct {
-	config.Config
+	Config
 	*model.TableModel // model MUST NOT be mutated.
 
 	TableNameOverride *string
@@ -26,8 +25,8 @@ type ItemGetter struct {
 }
 
 func (c *ItemGetter) Execute(ctx context.Context, item any) (getItemOutput *dynamodb.GetItemOutput, err error) {
-	if err = initConfig(ctx, &c.Config); err != nil {
-		return nil, err
+	if err = c.init(ctx); err != nil {
+		return
 	}
 
 	v, ptr, err := internal.IndirectValueIsStruct(item, true, c.StructType)
@@ -36,7 +35,7 @@ func (c *ItemGetter) Execute(ctx context.Context, item any) (getItemOutput *dyna
 	}
 
 	input := &dynamodb.GetItemInput{TableName: aws.String(c.TableName)}
-	if input.Key, err = c.EncodeKeys(item, c.CopyTo); err != nil {
+	if input.Key, err = c.EncodeKeysWith(item, c.Encoder); err != nil {
 		return nil, err
 	}
 

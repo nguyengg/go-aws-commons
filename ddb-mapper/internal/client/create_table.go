@@ -10,7 +10,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"github.com/nguyengg/go-aws-commons/ddb-mapper/config"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/model"
 )
 
@@ -18,7 +17,7 @@ import (
 //
 // [DynamoDB CreateTable]: https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_CreateTable.html
 type TableCreator struct {
-	config.Config
+	Config
 	*model.TableModel // model MUST NOT be mutated.
 
 	MaxWait           time.Duration
@@ -28,8 +27,8 @@ type TableCreator struct {
 }
 
 func (c *TableCreator) Execute(ctx context.Context) (err error) {
-	if err = initConfig(ctx, &c.Config); err != nil {
-		return err
+	if err = c.init(ctx); err != nil {
+		return
 	}
 
 	// try to extract the hash key type

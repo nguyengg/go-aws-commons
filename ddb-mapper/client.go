@@ -27,7 +27,7 @@ func (fn ClientProviderFunc) Provide(ctx context.Context) (*dynamodb.Client, err
 	return fn(ctx)
 }
 
-// defaultClientProvider's provide is cached when success.
+// defaultClientProvider's Provide is cached on success.
 type defaultClientProvider struct {
 	c    *dynamodb.Client
 	once ini.SuccessOnce
@@ -68,8 +68,7 @@ func (p StaticClientProvider) Provide(_ context.Context) (*dynamodb.Client, erro
 	return p.Client, nil
 }
 
-// defaultConfig creates a [config.Config] with its [config.Config.Client] being set to DefaultClientProvider's return
-// value.
+// defaultConfig creates a [config.Config] with its [config.Config.Client] set to DefaultClientProvider's return value.
 func defaultConfig(ctx context.Context) (cfg config.Config) {
 	if c, err := DefaultClientProvider.Provide(ctx); err == nil {
 		cfg.Client = c

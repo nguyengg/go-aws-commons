@@ -34,8 +34,3 @@ type Config struct {
 	// The function is given the exact same item passed into the operations that support optimistic locking.
 	VersionUpdater func(item any)
 }
-
-// CopyTo copies the fields of this config to the other argument.
-func (c *Config) CopyTo(other *Config) {
-	*other = *c
-}

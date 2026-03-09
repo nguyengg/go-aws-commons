@@ -11,7 +11,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"github.com/nguyengg/go-aws-commons/ddb-mapper/config"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/internal"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/model"
 	ddbtypes "github.com/nguyengg/go-aws-commons/ddb-mapper/types"
@@ -21,7 +20,7 @@ import (
 //
 // [DynamoDB UpdateItem]: https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_UpdateItem.html
 type ItemUpdater struct {
-	config.Config
+	Config
 	*model.TableModel // model MUST NOT be mutated.
 
 	DisableOptimisticLocking       bool
@@ -38,8 +37,8 @@ type ItemUpdater struct {
 }
 
 func (c *ItemUpdater) Execute(ctx context.Context, item any) (updateItemOutput *dynamodb.UpdateItemOutput, err error) {
-	if err = initConfig(ctx, &c.Config); err != nil {
-		return nil, err
+	if err = c.init(ctx); err != nil {
+		return
 	}
 
 	v, ptr, err := internal.IndirectValueIsStruct(item, true, c.StructType)
@@ -66,7 +65,7 @@ func (c *ItemUpdater) Execute(ctx context.Context, item any) (updateItemOutput *
 
 	// instead of marshaling just the key, we'll marshal the entire item here so that we can use the AttributeValue
 	// from the map's version and timestamps mappings to add to update expression.
-	avM, err := c.Encode(item, c.CopyTo)
+	avM, err := c.EncodeWith(item, c.Encoder)
 	if err != nil {
 		return nil, err
 	}

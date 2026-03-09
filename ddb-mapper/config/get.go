@@ -1,35 +1,18 @@
-package ddb
+package config
 
 import (
-	"context"
-
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	"github.com/nguyengg/go-aws-commons/ddb-mapper/config"
-	"github.com/nguyengg/go-aws-commons/ddb-mapper/internal"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/internal/client"
-	"github.com/nguyengg/go-aws-commons/ddb-mapper/model"
 )
 
-// Get is a wrapper around [mapper.Mapper.Get].
-//
-// The item argument must be parseable by [mapper.New], and must be a struct pointer since the struct's fields may be
-// modified on success.
-//
-// [DefaultClientProvider] is used to retrieve the DynamoDB client to make the service calls.
-func Get(ctx context.Context, item any, optFns ...func(opts *GetOptions)) (_ *dynamodb.GetItemOutput, err error) {
-	c := internal.ApplyOpts(&GetOptions{Config: defaultConfig(ctx)}, optFns...).Resolve()
-	if c.TableModel, err = model.NewForTypeOf(item); err != nil {
-		return nil, err
-	}
-
-	return c.Execute(ctx, item)
-}
-
-// GetOptions customises Get.
+// GetOptions customises a single [DynamoDB GetItem] call.
 //
 // GetOptions can be modified either by changing the fields directly or via chaining With methods.
+//
+// [DynamoDB GetItem]: https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_GetItem.html
 type GetOptions struct {
-	config.Config
+	// Config customises these settings at the operation level.
+	Config
 
 	tableName *string
 	inputFn   func(input *dynamodb.GetItemInput)
@@ -57,7 +40,12 @@ func (opts *GetOptions) WithClientOptions(optFns ...func(opts *dynamodb.Options)
 // Resolve creates the internal [client.ItemGetter].
 func (opts *GetOptions) Resolve() *client.ItemGetter {
 	return &client.ItemGetter{
-		Config:            opts.Config,
+		Config: client.Config{
+			Client:         opts.Client,
+			Encoder:        opts.Encoder,
+			Decoder:        opts.Decoder,
+			VersionUpdater: opts.VersionUpdater,
+		},
 		TableNameOverride: opts.tableName,
 		InputFn:           opts.inputFn,
 		OptFns:            opts.optFns,

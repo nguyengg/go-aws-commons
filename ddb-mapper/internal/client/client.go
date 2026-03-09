@@ -1,17 +1,12 @@
 package client
 
 import (
-	"context"
 	"fmt"
 	"reflect"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/google/uuid"
-	configcache "github.com/nguyengg/go-aws-commons/config-cache"
-	"github.com/nguyengg/go-aws-commons/ddb-mapper/config"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/internal"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/model"
 )
@@ -85,26 +80,4 @@ func updateTimestamps(m *model.TableModel, item reflect.Value, t time.Time, upda
 	}
 
 	return reset
-}
-
-// initConfig makes sure all the nil fields in [config.Config] that have default values are non-nil.
-func initConfig(ctx context.Context, c *config.Config) error {
-	if c.Client == nil {
-		cfg, err := configcache.Get(ctx)
-		if err != nil {
-			return err
-		}
-
-		c.Client = dynamodb.NewFromConfig(cfg)
-	}
-
-	if c.Encoder == nil {
-		c.Encoder = attributevalue.NewEncoder()
-	}
-
-	if c.Decoder == nil {
-		c.Decoder = attributevalue.NewDecoder()
-	}
-
-	return nil
 }

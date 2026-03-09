@@ -7,7 +7,7 @@ import (
 
 // EncodeKeys extracts and marshals the key attributes from the given item.
 //
-// The item argument must be a struct or struct pointer that is parseable by [mapper.New]. The table name is also
+// The item argument must be a struct or struct pointer that is parseable by [model.NewForTypeOf]. The table name is also
 // returned for convenience. Use this method if you need to extract the key to execute DynamoDB calls that have no
 // out-of-the-box support in this package (e.g. Query, Scan).
 func EncodeKeys(item any) (key map[string]types.AttributeValue, tableName string, err error) {

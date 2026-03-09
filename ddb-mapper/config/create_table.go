@@ -1,35 +1,20 @@
-package ddb
+package config
 
 import (
-	"context"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	"github.com/nguyengg/go-aws-commons/ddb-mapper/config"
-	"github.com/nguyengg/go-aws-commons/ddb-mapper/internal"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/internal/client"
-	"github.com/nguyengg/go-aws-commons/ddb-mapper/model"
 )
 
-// CreateTable is a wrapper around [mapper.Mapper.CreateTable].
-//
-// The item argument must be a struct or struct pointer that is parseable by [mapper.New].
-//
-// [DefaultClientProvider] is used to retrieve the DynamoDB client to make the service calls.
-func CreateTable(ctx context.Context, item any, optFns ...func(opts *CreateTableOptions)) (err error) {
-	c := internal.ApplyOpts(&CreateTableOptions{Config: defaultConfig(ctx)}, optFns...).Resolve()
-	if c.TableModel, err = model.NewForTypeOf(item); err != nil {
-		return err
-	}
-
-	return c.Execute(ctx)
-}
-
-// CreateTableOptions customises [CreateTable].
+// CreateTableOptions customises a single [DynamoDB CreateTable] call.
 //
 // CreateTableOptions can be modified either by changing the fields directly or via chaining With methods.
+//
+// [DynamoDB CreateTable]: https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_CreateTable.html
 type CreateTableOptions struct {
-	config.Config
+	// Config customises these settings at the operation level.
+	Config
 
 	// MaxWait is the amount of time to wait until table exists.
 	//
@@ -62,7 +47,12 @@ func (opts *CreateTableOptions) WithClientOptions(optFns ...func(opts *dynamodb.
 // Resolve creates the internal [client.TableCreator].
 func (opts *CreateTableOptions) Resolve() *client.TableCreator {
 	return &client.TableCreator{
-		Config:            opts.Config,
+		Config: client.Config{
+			Client:         opts.Client,
+			Encoder:        opts.Encoder,
+			Decoder:        opts.Decoder,
+			VersionUpdater: opts.VersionUpdater,
+		},
 		MaxWait:           opts.MaxWait,
 		TableNameOverride: opts.tableName,
 		InputFn:           opts.inputFn,

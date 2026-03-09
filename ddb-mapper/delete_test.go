@@ -8,9 +8,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper"
+	"github.com/nguyengg/go-aws-commons/ddb-mapper/config"
 	. "github.com/nguyengg/go-aws-commons/ddb-mapper/internal/ddb-local-test"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/mapper"
-	. "github.com/nguyengg/go-aws-commons/must"
 	"github.com/stretchr/testify/require"
 )
 
@@ -32,12 +32,12 @@ func TestDelete(t *testing.T) {
 	want := &Item{ID: "test", Data: "i'm a teapot", Version: 3}
 	_, err = client.PutItem(t.Context(), &dynamodb.PutItemInput{
 		TableName: aws.String("Items"),
-		Item:      Must(attributevalue.Marshal(want)).(*types.AttributeValueMemberM).Value,
+		Item:      MustMarshalToM(t, want),
 	})
 	require.NoError(t, err)
 
 	// delete with ALL_OLD return values.
-	deleteItemOutput, err := ddb.Delete(t.Context(), &Item{ID: "test", Version: 3}, func(opts *ddb.DeleteOptions) {
+	deleteItemOutput, err := ddb.Delete(t.Context(), &Item{ID: "test", Version: 3}, func(opts *config.DeleteOptions) {
 		opts.WithInputOptions(func(input *dynamodb.DeleteItemInput) {
 			input.ReturnValues = types.ReturnValueAllOld
 		})
@@ -71,12 +71,12 @@ func TestMapper_Delete(t *testing.T) {
 	want := &Item{ID: "test", Data: "i'm a teapot", Version: 3}
 	_, err = client.PutItem(t.Context(), &dynamodb.PutItemInput{
 		TableName: aws.String("Items"),
-		Item:      Must(attributevalue.Marshal(want)).(*types.AttributeValueMemberM).Value,
+		Item:      MustMarshalToM(t, want),
 	})
 	require.NoError(t, err)
 
 	// delete with ALL_OLD return values.
-	deleteItemOutput, err := m.Delete(t.Context(), &Item{ID: "test", Version: 3}, func(opts *ddb.DeleteOptions) {
+	deleteItemOutput, err := m.Delete(t.Context(), &Item{ID: "test", Version: 3}, func(opts *config.DeleteOptions) {
 		opts.WithInputOptions(func(input *dynamodb.DeleteItemInput) {
 			input.ReturnValues = types.ReturnValueAllOld
 		})
