@@ -97,7 +97,7 @@ func (m TableModel) EncodeWith(item any, e *attributevalue.Encoder) (map[string]
 // [GetItem]: https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_GetItem.html#DDB-GetItem-request-Key
 // [UpdateItem]: https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_UpdateItem.html#DDB-UpdateItem-request-Key
 func (m TableModel) EncodeKeys(item any) (map[string]types.AttributeValue, error) {
-	return m.EncodeWith(item, attributevalue.NewEncoder())
+	return m.EncodeKeysWith(item, attributevalue.NewEncoder())
 }
 
 // EncodeKeysWith is a variation of [TableModel.EncodeKeys] that requires an explicit [attributevalue.Encoder].

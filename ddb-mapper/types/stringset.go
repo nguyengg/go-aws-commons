@@ -11,9 +11,25 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
-// StringSet is a set of strings encoded as DynamoDB SS data type.
+// StringSet is a set of strings encoded as DynamoDB "SS" data type when non-empty, "NULL" otherwise.
 //
 // The zero value StringSet is ready for use.
+//
+// If using []string natively, you MUST tag the field with `,stringset` so that the encoder will omit marshaling the
+// field when empty ("SS", "NS", and "BS" cannot be empty; however, [empty lists and maps are allowed]):
+//
+//	type Item struct {
+//		// attributevalue.Encder will omit empty data.
+//		Data []string `dynamodbav:"data,stringset"`
+//	}
+//
+// If you want to mimic the omit-empty-value behaviour by `,stringset`, enable [attributevalue.EncoderOptions.OmitNullAttributeValues]:
+//
+//	attributevalue.NewEncoder(func(opts *attributevalue.EncoderOptions) {
+//		opts.OmitNullAttributeValues = true
+//	})
+//
+// [empty lists and maps are allowed]: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.NamingRulesDataTypes.html#HowItWorks.DataTypes.Document
 type StringSet struct {
 	// m is embedded instead of alias to allow zero value StringSet to work.
 	m map[string]struct{}

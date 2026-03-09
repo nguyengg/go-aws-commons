@@ -1,3 +1,5 @@
+// Package config contains the common [Config] fields that are embedded by all operation options so that user can
+// override which DynamoDB client, encoder, and/or decoder, etc. to use per invocation.
 package config
 
 import (

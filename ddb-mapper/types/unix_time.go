@@ -14,7 +14,12 @@ import (
 // UnixTime is [time.Time] encoded as Unix time in seconds using DynamoDB N data type.
 //
 // UnixTime is a good candidate for a [time-to-live] value though be careful of how the default encoder handles (or
-// doesn't handle) zero-value [time.Time]. It would be better to use *UnixTime in that case.
+// doesn't handle) zero-value [time.Time]. It would be better to use *UnixTime in that case, unless you can enable
+// [attributevalue.EncoderOptions.OmitEmptyTime]:
+//
+//	attributevalue.NewEncoder(func(opts *attributevalue.EncoderOptions) {
+//		opts.OmitEmptyTime = true
+//	})
 //
 // UnixTime's methods always work at second precision. However, converting it to a [time.Time] may cause precision
 // issues. For example:
