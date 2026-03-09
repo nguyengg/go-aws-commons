@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"github.com/nguyengg/go-aws-commons/ddb-mapper"
-	"github.com/nguyengg/go-aws-commons/ddb-mapper/ddb"
 	. "github.com/nguyengg/go-aws-commons/ddb-mapper/internal/ddb-local-test"
+	"github.com/nguyengg/go-aws-commons/ddb-mapper/mapper"
 	"github.com/stretchr/testify/require"
 )
 

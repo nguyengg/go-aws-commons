@@ -5,8 +5,10 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/nguyengg/go-aws-commons/ddb-mapper/config"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/internal"
-	"github.com/nguyengg/go-aws-commons/ddb-mapper/internal/untyped"
+	"github.com/nguyengg/go-aws-commons/ddb-mapper/internal/client"
+	"github.com/nguyengg/go-aws-commons/ddb-mapper/model"
 )
 
 // Delete is a wrapper around [mapper.Mapper.Delete].
@@ -14,24 +16,21 @@ import (
 // The item argument must be a struct or struct pointer that is parseable by [mapper.New].
 //
 // [DefaultClientProvider] is used to retrieve the DynamoDB client to make the service calls.
-func Delete(ctx context.Context, item any, optFns ...func(opts *DeleteOptions)) (*dynamodb.DeleteItemOutput, error) {
-	client, err := DefaultClientProvider.Provide(ctx)
-	if err != nil {
+func Delete(ctx context.Context, item any, optFns ...func(opts *DeleteOptions)) (_ *dynamodb.DeleteItemOutput, err error) {
+	c := internal.ApplyOpts(&DeleteOptions{Config: defaultConfig(ctx)}, optFns...).Resolve()
+	if c.TableModel, err = model.NewForTypeOf(item); err != nil {
 		return nil, err
 	}
 
-	m, err := untyped.NewFromItem(item, func(opts *untyped.Options) { opts.Client = client })
-	if err != nil {
-		return nil, err
-	}
-
-	return m.Delete(ctx, item, internal.ApplyOpts(&DeleteOptions{}, optFns...).CopyTo)
+	return c.Execute(ctx, item)
 }
 
 // DeleteOptions customises Delete.
 //
 // DeleteOptions can be modified either by changing the fields directly or via chaining With methods.
 type DeleteOptions struct {
+	config.Config
+
 	// DisableOptimisticLocking, if true, will disable optimistic locking functionality.
 	DisableOptimisticLocking bool
 
@@ -39,14 +38,6 @@ type DeleteOptions struct {
 	condition expression.ConditionBuilder
 	inputFn   func(input *dynamodb.DeleteItemInput)
 	optFns    []func(opts *dynamodb.Options)
-}
-
-func (opts *DeleteOptions) CopyTo(untypedOpts *untyped.DeleteOptions) {
-	untypedOpts.DisableOptimisticLocking = opts.DisableOptimisticLocking
-	untypedOpts.TableName = opts.tableName
-	untypedOpts.Condition = opts.condition
-	untypedOpts.InputFn = opts.inputFn
-	untypedOpts.OptFns = opts.optFns
 }
 
 // WithTableNameOverride overrides the table name.
@@ -65,4 +56,16 @@ func (opts *DeleteOptions) WithInputOptions(fn func(input *dynamodb.DeleteItemIn
 func (opts *DeleteOptions) WithClientOptions(optFns ...func(opts *dynamodb.Options)) *DeleteOptions {
 	opts.optFns = optFns
 	return opts
+}
+
+// Resolve creates the internal [client.ItemDeleter].
+func (opts *DeleteOptions) Resolve() *client.ItemDeleter {
+	return &client.ItemDeleter{
+		Config:                   opts.Config,
+		DisableOptimisticLocking: opts.DisableOptimisticLocking,
+		TableNameOverride:        opts.tableName,
+		Condition:                opts.condition,
+		InputFn:                  opts.inputFn,
+		OptFns:                   opts.optFns,
+	}
 }

@@ -88,8 +88,6 @@ func New(in reflect.Type, optFns ...func(opts *Options)) (m *TableModel, err err
 		tag, name string
 		// dups is used to catch duplicate attribute names.
 		dups = make(map[string]reflect.StructField)
-		// errs is validation error that is reported at the end.
-		errs = make([]error, 0)
 	)
 
 	// using in.Fields() requires go1.26.
@@ -161,35 +159,12 @@ func New(in reflect.Type, optFns ...func(opts *Options)) (m *TableModel, err err
 		}
 
 		if attr.AttrType == AttributeModelTypeOther {
-			m.Others[attr.Name] = attr
+			m.Others[name] = attr
 		}
 	}
 
-	// validation errors.
-	if m.HashKey == nil {
-		errs = append(errs, fmt.Errorf("no hashkey attribute found"))
-	}
-	if opts.MustHave != 0 {
-		if opts.MustHave&AttributeModelTypeSortKey != 0 && m.SortKey == nil {
-			errs = append(errs, errors.New("no sortkey attribute found"))
-		}
-		if opts.MustHave&AttributeModelTypeVersion != 0 && m.Version == nil {
-			errs = append(errs, errors.New("no version attribute found"))
-		}
-		if opts.MustHave&AttributeModelTypeCreatedTime != 0 && m.CreatedTime == nil {
-			errs = append(errs, errors.New("no createdtime attribute found"))
-		}
-		if opts.MustHave&AttributeModelTypeModifiedTime != 0 && m.ModifiedTime == nil {
-			errs = append(errs, errors.New("no modifiedtime attribute found"))
-		}
-	}
-
-	switch n := len(errs); n {
-	case 0:
-	case 1:
-		return nil, fmt.Errorf("parse struct type %s error: %w", m.StructType, errs[0])
-	default:
-		return nil, fmt.Errorf("parse struct type %s error: %w", m.StructType, errors.Join(errs...))
+	if err = MustHave(m, opts.MustHave); err != nil {
+		return nil, err
 	}
 
 	// keyStructType is a dynamic struct created from just the keys.
@@ -203,3 +178,36 @@ func New(in reflect.Type, optFns ...func(opts *Options)) (m *TableModel, err err
 }
 
 var timeType = reflect.TypeFor[time.Time]()
+
+// MustHave validates that the model must have the required attributes.
+func MustHave(m *TableModel, flags AttributeModelType) error {
+	errs := make([]error, 0)
+
+	if m.HashKey == nil {
+		errs = append(errs, fmt.Errorf("no hashkey attribute found"))
+	}
+
+	if flags != 0 {
+		if flags&AttributeModelTypeSortKey != 0 && m.SortKey == nil {
+			errs = append(errs, errors.New("no sortkey attribute found"))
+		}
+		if flags&AttributeModelTypeVersion != 0 && m.Version == nil {
+			errs = append(errs, errors.New("no version attribute found"))
+		}
+		if flags&AttributeModelTypeCreatedTime != 0 && m.CreatedTime == nil {
+			errs = append(errs, errors.New("no createdtime attribute found"))
+		}
+		if flags&AttributeModelTypeModifiedTime != 0 && m.ModifiedTime == nil {
+			errs = append(errs, errors.New("no modifiedtime attribute found"))
+		}
+	}
+
+	switch n := len(errs); n {
+	case 0:
+		return nil
+	case 1:
+		return fmt.Errorf("struct type %s validation error: %w", m.StructType, errs[0])
+	default:
+		return fmt.Errorf("struct type %s validation error: %w", m.StructType, errors.Join(errs...))
+	}
+}

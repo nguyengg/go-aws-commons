@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	"github.com/nguyengg/go-aws-commons/ddb-mapper/ddb"
+	"github.com/nguyengg/go-aws-commons/ddb-mapper"
 	local "github.com/nguyengg/go-dynamodb-local"
 	"github.com/stretchr/testify/require"
 )

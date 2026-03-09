@@ -25,11 +25,11 @@ type Config struct {
 
 	// VersionUpdater is used to generate the next version value by updating the item's version value in-place.
 	//
-	// If VersionUpdater is given, it is always used to update the version. Otherwise, the version's type determines
+	// If VersionUpdater is given, it is always used to update the version. Otherwise, the version's Go type determines
 	// how its next value is computed:
-	//	- For integers, uint and int types work out of the box; the next value is version + 1.
-	//	- For string and string aliases, uuid.NewString produces the next version.
-	//	- For floats and any other types, VersionUpdater must be explicitly provided.
+	//	- For uint and int types, the next value is version + 1.
+	//	- For string and string aliases, uuid.NewString produces the next value.
+	//	- For any other types, VersionUpdater must be explicitly provided.
 	//
 	// The function is given the exact same item passed into the operations that support optimistic locking.
 	VersionUpdater func(item any)

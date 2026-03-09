@@ -4,8 +4,10 @@ import (
 	"context"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/nguyengg/go-aws-commons/ddb-mapper/config"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/internal"
-	"github.com/nguyengg/go-aws-commons/ddb-mapper/internal/untyped"
+	"github.com/nguyengg/go-aws-commons/ddb-mapper/internal/client"
+	"github.com/nguyengg/go-aws-commons/ddb-mapper/model"
 )
 
 // Get is a wrapper around [mapper.Mapper.Get].
@@ -14,33 +16,24 @@ import (
 // modified on success.
 //
 // [DefaultClientProvider] is used to retrieve the DynamoDB client to make the service calls.
-func Get(ctx context.Context, item any, optFns ...func(opts *GetOptions)) (*dynamodb.GetItemOutput, error) {
-	client, err := DefaultClientProvider.Provide(ctx)
-	if err != nil {
+func Get(ctx context.Context, item any, optFns ...func(opts *GetOptions)) (_ *dynamodb.GetItemOutput, err error) {
+	c := internal.ApplyOpts(&GetOptions{Config: defaultConfig(ctx)}, optFns...).Resolve()
+	if c.TableModel, err = model.NewForTypeOf(item); err != nil {
 		return nil, err
 	}
 
-	m, err := untyped.NewFromItem(item, func(opts *untyped.Options) { opts.Client = client })
-	if err != nil {
-		return nil, err
-	}
-
-	return m.Get(ctx, item, internal.ApplyOpts(&GetOptions{}, optFns...).CopyTo)
+	return c.Execute(ctx, item)
 }
 
 // GetOptions customises Get.
 //
 // GetOptions can be modified either by changing the fields directly or via chaining With methods.
 type GetOptions struct {
+	config.Config
+
 	tableName *string
 	inputFn   func(input *dynamodb.GetItemInput)
 	optFns    []func(opts *dynamodb.Options)
-}
-
-func (opts *GetOptions) CopyTo(untypedOpts *untyped.GetOptions) {
-	untypedOpts.TableName = opts.tableName
-	untypedOpts.InputFn = opts.inputFn
-	untypedOpts.OptFns = opts.optFns
 }
 
 // WithTableNameOverride overrides the table name.
@@ -59,4 +52,14 @@ func (opts *GetOptions) WithInputOptions(fn func(input *dynamodb.GetItemInput)) 
 func (opts *GetOptions) WithClientOptions(optFns ...func(opts *dynamodb.Options)) *GetOptions {
 	opts.optFns = optFns
 	return opts
+}
+
+// Resolve creates the internal [client.ItemGetter].
+func (opts *GetOptions) Resolve() *client.ItemGetter {
+	return &client.ItemGetter{
+		Config:            opts.Config,
+		TableNameOverride: opts.tableName,
+		InputFn:           opts.inputFn,
+		OptFns:            opts.optFns,
+	}
 }

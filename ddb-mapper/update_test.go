@@ -8,10 +8,9 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"github.com/nguyengg/go-aws-commons/ddb-mapper/ddb"
-	ddbtypes "github.com/nguyengg/go-aws-commons/ddb-mapper/ddb/types"
+	"github.com/nguyengg/go-aws-commons/ddb-mapper"
 	. "github.com/nguyengg/go-aws-commons/ddb-mapper/internal/ddb-local-test"
-	mappertypes "github.com/nguyengg/go-aws-commons/ddb-mapper/types"
+	ddbtypes "github.com/nguyengg/go-aws-commons/ddb-mapper/types"
 	local "github.com/nguyengg/go-dynamodb-local"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -74,7 +73,7 @@ func TestUpdate_UpdateBehaviourDefault(t *testing.T) {
 		Version:     0,
 		CreatedTime: ddbtypes.UnixTime(time.Now()),
 	}, func(opts *ddb.UpdateOptions) {
-		opts.WithUpdateBehaviour(mappertypes.UpdateBehaviourDefault)
+		opts.WithUpdateBehaviour(ddbtypes.UpdateBehaviourDefault)
 	})
 	require.NoError(t, err)
 
@@ -102,7 +101,7 @@ func TestUpdate_UpdateBehaviourAsTagged(t *testing.T) {
 		Version:     0,
 		CreatedTime: ddbtypes.UnixTime(time.Now()),
 	}, func(opts *ddb.UpdateOptions) {
-		opts.WithUpdateBehaviour(mappertypes.UpdateBehaviourAsTagged)
+		opts.WithUpdateBehaviour(ddbtypes.UpdateBehaviourAsTagged)
 	})
 	require.NoError(t, err)
 

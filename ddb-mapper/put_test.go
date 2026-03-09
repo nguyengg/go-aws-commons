@@ -6,9 +6,9 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper"
-	"github.com/nguyengg/go-aws-commons/ddb-mapper/ddb"
-	ddbtypes "github.com/nguyengg/go-aws-commons/ddb-mapper/ddb/types"
 	. "github.com/nguyengg/go-aws-commons/ddb-mapper/internal/ddb-local-test"
+	"github.com/nguyengg/go-aws-commons/ddb-mapper/mapper"
+	ddbtypes "github.com/nguyengg/go-aws-commons/ddb-mapper/types"
 	local "github.com/nguyengg/go-dynamodb-local"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

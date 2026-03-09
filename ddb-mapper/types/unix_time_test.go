@@ -7,7 +7,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	. "github.com/nguyengg/go-aws-commons/ddb-mapper/internal/ddb-local-test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -156,11 +155,13 @@ func TestUnixTime_TaggedUnixTime(t *testing.T) {
 		Accessed: n,
 	})
 	require.NoError(t, err)
-	RequireHasAttributes(t, map[string]any{
-		"created":  1136239445,
-		"modified": 1136239445,
-		"accessed": 1136239445,
-	}, item.(*types.AttributeValueMemberM).Value)
+	require.Equal(t,
+		map[string]types.AttributeValue{
+			"created":  &types.AttributeValueMemberN{Value: "1136239445"},
+			"modified": &types.AttributeValueMemberN{Value: "1136239445"},
+			"accessed": &types.AttributeValueMemberN{Value: "1136239445"},
+		},
+		item.(*types.AttributeValueMemberM).Value)
 }
 
 func TestUnixTime_MarshalingQuirk(t *testing.T) {

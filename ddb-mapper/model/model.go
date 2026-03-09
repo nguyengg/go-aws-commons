@@ -6,7 +6,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"github.com/nguyengg/go-aws-commons/ddb-mapper/ddb/config"
+	"github.com/nguyengg/go-aws-commons/ddb-mapper/config"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/internal"
 )
 

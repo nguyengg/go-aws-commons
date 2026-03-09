@@ -10,7 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"github.com/nguyengg/go-aws-commons/ddb-mapper/ddb/config"
+	"github.com/nguyengg/go-aws-commons/ddb-mapper/config"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/model"
 )
 
@@ -19,7 +19,7 @@ import (
 // [DynamoDB CreateTable]: https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_CreateTable.html
 type TableCreator struct {
 	config.Config
-	model.TableModel
+	*model.TableModel // model MUST NOT be mutated.
 
 	MaxWait           time.Duration
 	TableNameOverride *string
@@ -27,63 +27,63 @@ type TableCreator struct {
 	OptFns            []func(opts *dynamodb.Options)
 }
 
-func (m *TableCreator) Execute(ctx context.Context) (err error) {
-	if err = initConfig(ctx, &m.Config); err != nil {
+func (c *TableCreator) Execute(ctx context.Context) (err error) {
+	if err = initConfig(ctx, &c.Config); err != nil {
 		return err
 	}
 
 	// try to extract the hash key type
-	scalarType := guessScalarType(m.HashKey.Type)
+	scalarType := guessScalarType(c.HashKey.Type)
 	if scalarType == "" {
-		return fmt.Errorf("cannot determine hashkey's scalar type: %s{%q: %s}", m.StructType, m.HashKey.Name, m.HashKey.Type)
+		return fmt.Errorf("cannot determine hashkey's scalar type: %s{%q: %s}", c.StructType, c.HashKey.Name, c.HashKey.Type)
 	}
 
 	input := &dynamodb.CreateTableInput{
-		TableName:   aws.String(m.TableName),
+		TableName:   aws.String(c.TableName),
 		BillingMode: types.BillingModePayPerRequest,
 		AttributeDefinitions: []types.AttributeDefinition{
 			{
-				AttributeName: aws.String(m.HashKey.AttrName),
+				AttributeName: aws.String(c.HashKey.AttrName),
 				AttributeType: scalarType,
 			},
 		},
 		KeySchema: []types.KeySchemaElement{
 			{
-				AttributeName: aws.String(m.HashKey.AttrName),
+				AttributeName: aws.String(c.HashKey.AttrName),
 				KeyType:       types.KeyTypeHash,
 			},
 		},
 	}
 
-	if m.SortKey != nil {
-		if scalarType = guessScalarType(m.SortKey.Type); scalarType == "" {
-			return fmt.Errorf("cannot determine sortkey's scalar type: %s{%q: %s}", m.StructType, m.HashKey.Name, m.HashKey.Type)
+	if c.SortKey != nil {
+		if scalarType = guessScalarType(c.SortKey.Type); scalarType == "" {
+			return fmt.Errorf("cannot determine sortkey's scalar type: %s{%q: %s}", c.StructType, c.HashKey.Name, c.HashKey.Type)
 		}
 
 		input.AttributeDefinitions = append(input.AttributeDefinitions, types.AttributeDefinition{
-			AttributeName: aws.String(m.SortKey.AttrName),
+			AttributeName: aws.String(c.SortKey.AttrName),
 			AttributeType: scalarType,
 		})
 		input.KeySchema = append(input.KeySchema, types.KeySchemaElement{
-			AttributeName: aws.String(m.SortKey.AttrName),
+			AttributeName: aws.String(c.SortKey.AttrName),
 			KeyType:       types.KeyTypeRange,
 		})
 	}
 
-	if m.TableNameOverride != nil {
-		input.TableName = m.TableNameOverride
+	if c.TableNameOverride != nil {
+		input.TableName = c.TableNameOverride
 	}
-	if m.InputFn != nil {
-		m.InputFn(input)
+	if c.InputFn != nil {
+		c.InputFn(input)
 	}
 
-	if _, err = m.Client.CreateTable(ctx, input, m.OptFns...); err != nil {
+	if _, err = c.Client.CreateTable(ctx, input, c.OptFns...); err != nil {
 		return fmt.Errorf("dynamodb CreateTable error: %w", err)
 	}
 
-	if m.MaxWait > 0 {
-		if err := dynamodb.NewTableExistsWaiter(m.Client).
-			Wait(ctx, &dynamodb.DescribeTableInput{TableName: aws.String(m.TableName)}, m.MaxWait); err != nil {
+	if c.MaxWait > 0 {
+		if err := dynamodb.NewTableExistsWaiter(c.Client).
+			Wait(ctx, &dynamodb.DescribeTableInput{TableName: aws.String(c.TableName)}, c.MaxWait); err != nil {
 			return fmt.Errorf("wait until table exists error: %w", err)
 		}
 	}

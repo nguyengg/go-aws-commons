@@ -1,7 +1,6 @@
-package untyped
+package model
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,7 +12,7 @@ func TestAttribute_GetAndSet(t *testing.T) {
 		ID string `dynamodbav:"id,hashkey" tableName:"Items"`
 	}
 
-	m, err := NewFromType(reflect.TypeFor[Item]())
+	m, err := NewForType[Item]()
 	require.NoError(t, err)
 
 	item := Item{}

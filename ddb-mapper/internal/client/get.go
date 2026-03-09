@@ -8,24 +8,24 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"github.com/nguyengg/go-aws-commons/ddb-mapper/ddb/config"
+	"github.com/nguyengg/go-aws-commons/ddb-mapper/config"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/internal"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/model"
 )
 
-// Getter is the client for executing [DynamoDB GetItem].
+// ItemGetter is the client for executing [DynamoDB GetItem].
 //
 // [DynamoDB GetItem]: https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_GetItem.html
-type Getter struct {
+type ItemGetter struct {
 	config.Config
-	model.TableModel
+	*model.TableModel // model MUST NOT be mutated.
 
 	TableNameOverride *string
 	InputFn           func(input *dynamodb.GetItemInput)
 	OptFns            []func(opts *dynamodb.Options)
 }
 
-func (c *Getter) Execute(ctx context.Context, item any) (getItemOutput *dynamodb.GetItemOutput, err error) {
+func (c *ItemGetter) Execute(ctx context.Context, item any) (getItemOutput *dynamodb.GetItemOutput, err error) {
 	if err = initConfig(ctx, &c.Config); err != nil {
 		return nil, err
 	}

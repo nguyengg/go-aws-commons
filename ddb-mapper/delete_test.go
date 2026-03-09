@@ -8,13 +8,13 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper"
-	"github.com/nguyengg/go-aws-commons/ddb-mapper/ddb"
 	. "github.com/nguyengg/go-aws-commons/ddb-mapper/internal/ddb-local-test"
+	"github.com/nguyengg/go-aws-commons/ddb-mapper/mapper"
 	. "github.com/nguyengg/go-aws-commons/must"
 	"github.com/stretchr/testify/require"
 )
 
-func TestGet(t *testing.T) {
+func TestDelete(t *testing.T) {
 	type Item struct {
 		ID      string `dynamodbav:"id,hashkey" tableName:"Items"`
 		Data    string `dynamodbav:"data"`
@@ -24,21 +24,33 @@ func TestGet(t *testing.T) {
 	client := Setup(t, Item{})
 	ddb.DefaultClientProvider = &ddb.StaticClientProvider{Client: client}
 
+	// deleting an item that doesn't exist do nothing.
+	_, err := ddb.Delete(t.Context(), &Item{ID: "tes"})
+	require.NoError(t, err)
+
+	// put an item to test deletion.
 	want := &Item{ID: "test", Data: "i'm a teapot", Version: 3}
-	_, err := client.PutItem(t.Context(), &dynamodb.PutItemInput{
+	_, err = client.PutItem(t.Context(), &dynamodb.PutItemInput{
 		TableName: aws.String("Items"),
 		Item:      Must(attributevalue.Marshal(want)).(*types.AttributeValueMemberM).Value,
 	})
 	require.NoError(t, err)
 
-	got := &Item{ID: "test"}
-	_, err = ddb.Get(t.Context(), got)
+	// delete with ALL_OLD return values.
+	deleteItemOutput, err := ddb.Delete(t.Context(), &Item{ID: "test", Version: 3}, func(opts *ddb.DeleteOptions) {
+		opts.WithInputOptions(func(input *dynamodb.DeleteItemInput) {
+			input.ReturnValues = types.ReturnValueAllOld
+		})
+	})
 	require.NoError(t, err)
+
+	// the old values must be identical to Item.
+	got := &Item{}
+	require.NoError(t, attributevalue.UnmarshalMap(deleteItemOutput.Attributes, got))
 	require.Equal(t, want, got)
 }
 
-// TestMapper_Get is exactly as TestGet but uses typed Mapper.
-func TestMapper_Get(t *testing.T) {
+func TestMapper_Delete(t *testing.T) {
 	type Item struct {
 		ID      string `dynamodbav:"id,hashkey" tableName:"Items"`
 		Data    string `dynamodbav:"data"`
@@ -51,6 +63,11 @@ func TestMapper_Get(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	// deleting an item that doesn't exist do nothing.
+	_, err = m.Delete(t.Context(), &Item{ID: "tes"})
+	require.NoError(t, err)
+
+	// put an item to test deletion.
 	want := &Item{ID: "test", Data: "i'm a teapot", Version: 3}
 	_, err = client.PutItem(t.Context(), &dynamodb.PutItemInput{
 		TableName: aws.String("Items"),
@@ -58,8 +75,16 @@ func TestMapper_Get(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	got := &Item{ID: "test"}
-	_, err = m.Get(t.Context(), got)
+	// delete with ALL_OLD return values.
+	deleteItemOutput, err := m.Delete(t.Context(), &Item{ID: "test", Version: 3}, func(opts *ddb.DeleteOptions) {
+		opts.WithInputOptions(func(input *dynamodb.DeleteItemInput) {
+			input.ReturnValues = types.ReturnValueAllOld
+		})
+	})
 	require.NoError(t, err)
+
+	// the old values must be identical to Item.
+	got := &Item{}
+	require.NoError(t, attributevalue.UnmarshalMap(deleteItemOutput.Attributes, got))
 	require.Equal(t, want, got)
 }

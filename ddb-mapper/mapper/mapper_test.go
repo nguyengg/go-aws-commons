@@ -3,39 +3,39 @@ package mapper
 import (
 	"testing"
 
-	"github.com/nguyengg/go-aws-commons/ddb-mapper/types"
+	"github.com/nguyengg/go-aws-commons/ddb-mapper/model"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestMustHave(t *testing.T) {
+func TestNewMustHave(t *testing.T) {
 	type Item struct {
 		ID string `dynamodbav:"id,hashkey" tableName:"Items"`
 	}
 
 	tests := []struct {
 		name string
-		flag types.AttributeType
+		flag model.AttributeModelType
 	}{
 		{
 			name: "no sortkey attribute found",
-			flag: types.AttributeTypeSortKey,
+			flag: model.AttributeModelTypeSortKey,
 		},
 		{
 			name: "no version attribute found",
-			flag: types.AttributeTypeVersion,
+			flag: model.AttributeModelTypeVersion,
 		},
 		{
-			name: "no created time attribute found",
-			flag: types.AttributeTypeCreatedTime,
+			name: "no createdtime attribute found",
+			flag: model.AttributeModelTypeCreatedTime,
 		},
 		{
-			name: "no modified time attribute found",
-			flag: types.AttributeTypeModifiedTime,
+			name: "no modifiedtime attribute found",
+			flag: model.AttributeModelTypeModifiedTime,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := MustHave[Item](tt.flag)(New[Item]())
+			_, err := NewMustHave[Item](tt.flag)
 			assert.ErrorContains(t, err, tt.name)
 		})
 	}

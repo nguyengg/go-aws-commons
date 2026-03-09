@@ -1,4 +1,4 @@
-package mapper
+package ddb
 
 import (
 	"testing"
