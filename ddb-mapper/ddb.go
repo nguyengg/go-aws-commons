@@ -217,3 +217,12 @@ func newModel(i any) (*model.TableModel, error) {
 
 	return m, err
 }
+
+// defaultConfig creates a [config.Config] with its [config.Config.Client] set to DefaultClientProvider's return value.
+func defaultConfig(ctx context.Context) (cfg config.Config) {
+	if c, err := config.DefaultClientProvider.Provide(ctx); err == nil {
+		cfg.Client = c
+	}
+
+	return
+}

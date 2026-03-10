@@ -27,7 +27,7 @@ func TestUpdate(t *testing.T) {
 	}
 
 	client := Setup(t, Item{})
-	ddb.DefaultClientProvider = ddb.StaticClientProvider{Client: client}
+	config.DefaultClientProvider = config.StaticClientProvider{Client: client}
 
 	// first UpdateItem will create it with only Version, CreatedTime, and ModifiedTime filled out.
 	_, err := ddb.Update(t.Context(), &Item{ID: "test"})
@@ -66,7 +66,7 @@ func TestUpdate_UpdateBehaviourDefault(t *testing.T) {
 	}
 
 	client := Setup(t, Item{})
-	ddb.DefaultClientProvider = ddb.StaticClientProvider{Client: client}
+	config.DefaultClientProvider = config.StaticClientProvider{Client: client}
 
 	_, err := ddb.Update(t.Context(), &Item{
 		ID:          "test",
@@ -94,7 +94,7 @@ func TestUpdate_UpdateBehaviourAsTagged(t *testing.T) {
 	}
 
 	client := Setup(t, Item{})
-	ddb.DefaultClientProvider = ddb.StaticClientProvider{Client: client}
+	config.DefaultClientProvider = config.StaticClientProvider{Client: client}
 
 	_, err := ddb.Update(t.Context(), &Item{
 		ID:          "test",
@@ -120,7 +120,7 @@ func TestUpdateReturnAllNewValues(t *testing.T) {
 	}
 
 	client := Setup(t, Item{})
-	ddb.DefaultClientProvider = ddb.StaticClientProvider{Client: client}
+	config.DefaultClientProvider = config.StaticClientProvider{Client: client}
 
 	// the first Update has non-empty data.
 	_, err := ddb.Update(t.Context(), &Item{ID: "test"}, func(opts *config.UpdateOptions) {
