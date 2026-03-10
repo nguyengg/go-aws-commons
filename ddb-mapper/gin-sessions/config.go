@@ -3,7 +3,9 @@ package sessions
 import (
 	"net/http"
 
-	"github.com/nguyengg/go-aws-commons/ddb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/nguyengg/go-aws-commons/ddb-mapper/config"
+	"github.com/nguyengg/go-aws-commons/ddb-mapper/mapper"
 	"github.com/nguyengg/go-aws-commons/opaque-token/hmac"
 )
 
@@ -31,7 +33,7 @@ const (
 	DefaultCSRFFormName = "csrf_token"
 )
 
-// Config customises the Manager returned by New.
+// Config customises [New].
 type Config struct {
 	// SessionIdCookieName is the name of the cookie that contains session Id.
 	//
@@ -61,14 +63,34 @@ type Config struct {
 	// want to change the [http.Cookie.MaxAge] to something more reasonable.
 	CSRFCookieOptions func(c *http.Cookie)
 
-	// Client is the DynamoDB client for saving session data.
-	//
-	// By default, `configcache.Get` will be used to provide an instance.
-	Client ddb.ManagerAPIClient
+	// Client is the client for making DynamoDB service calls.
+	Client *dynamodb.Client
 
 	// these opaque fields must use the various With* methods to configure.
-	csrfSignVerifier hmac.Hasher
+
+	mapperOpts []func(cfg *config.Config)
+	csrf       hmac.Engine
 }
 
-// config is embedded by manager as private import.
-type config = Config
+// WithMapperOptions customises the internal [mapper.Mapper] that [Manager] uses.
+//
+// Subsequent WithMapperOptions will replace settings made by previous invocations.
+func WithMapperOptions(optFns ...func(cfg *config.Config)) func(cfg *Config) {
+	return func(cfg *Config) {
+		cfg.mapperOpts = optFns
+	}
+}
+
+// WithCSRF configures [New] to use CSRF generation with the given signer and verifier.
+//
+// The same [hmac.Engine] will be used for CSRF validation as well. See [github.com/nguyengg/go-aws-commons/opaque-token/hmac]
+// for various options on constructing the [hmac.Engine].
+//
+// [github.com/nguyengg/go-aws-commons/opaque-token/hmac]: https://pkg.go.dev/github.com/nguyengg/go-aws-commons/opaque-token/hmac
+func WithCSRF(csrf hmac.Engine) func(cfg *Config) {
+	return func(cfg *Config) {
+		cfg.csrf = csrf
+	}
+}
+
+var _ mapper.Mapper[any]
