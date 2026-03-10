@@ -6,6 +6,8 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"testing"
+
+	"github.com/nguyengg/go-aws-commons/opaque-token/keys"
 )
 
 func BenchmarkSigner_SignVerifySha1(b *testing.B) {
@@ -13,7 +15,7 @@ func BenchmarkSigner_SignVerifySha1(b *testing.B) {
 	payload := []byte("hello, world!")
 	ctx := context.Background()
 
-	signer := New(WithKey(key), WithHash(sha1.New))
+	signer := New(keys.Static(key), WithHash(sha1.New))
 
 	for range b.N {
 		signature, err := signer.Sign(ctx, payload, 0)
@@ -36,7 +38,7 @@ func BenchmarkSigner_SignVerifySha256(b *testing.B) {
 	payload := []byte("hello, world!")
 	ctx := context.Background()
 
-	signer := New(WithKey(key), WithHash(sha256.New))
+	signer := New(keys.Static(key), WithHash(sha256.New))
 
 	for range b.N {
 		signature, err := signer.Sign(ctx, payload, 0)
@@ -59,7 +61,7 @@ func BenchmarkSigner_SignVerifySha384(b *testing.B) {
 	payload := []byte("hello, world!")
 	ctx := context.Background()
 
-	signer := New(WithKey(key), WithHash(sha512.New384))
+	signer := New(keys.Static(key), WithHash(sha512.New384))
 
 	for range b.N {
 		signature, err := signer.Sign(ctx, payload, 0)
@@ -82,7 +84,7 @@ func BenchmarkSigner_SignVerifySha512(b *testing.B) {
 	payload := []byte("hello, world!")
 	ctx := context.Background()
 
-	signer := New(WithKey(key), WithHash(sha512.New))
+	signer := New(keys.Static(key), WithHash(sha512.New))
 
 	for range b.N {
 		signature, err := signer.Sign(ctx, payload, 0)
@@ -105,7 +107,7 @@ func BenchmarkSigner_SignVerifySha512_224(b *testing.B) {
 	payload := []byte("hello, world!")
 	ctx := context.Background()
 
-	signer := New(WithKey(key), WithHash(sha512.New512_224))
+	signer := New(keys.Static(key), WithHash(sha512.New512_224))
 
 	for range b.N {
 		signature, err := signer.Sign(ctx, payload, 0)
@@ -128,7 +130,7 @@ func BenchmarkSigner_SignVerifySha512_256(b *testing.B) {
 	payload := []byte("hello, world!")
 	ctx := context.Background()
 
-	signer := New(WithKey(key), WithHash(sha512.New512_256))
+	signer := New(keys.Static(key), WithHash(sha512.New512_256))
 
 	for range b.N {
 		signature, err := signer.Sign(ctx, payload, 0)

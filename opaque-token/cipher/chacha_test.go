@@ -1,20 +1,20 @@
-package endec
+package cipher
 
 import (
 	"context"
 	"encoding/base64"
 	"testing"
 
+	"github.com/nguyengg/go-aws-commons/opaque-token/keys"
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_NewAESWithGCM_EncodeDecode(t *testing.T) {
-	key := []byte("onvIzKsW6Ec2Q5VqS49zrNlmvrvibh8e")
+func Test_ChaCha20Poly1305_EncodeDecode(t *testing.T) {
+	secret := []byte("onvIzKsW6Ec2Q5VqS49zrNlmvrvibh8e")
 	plaintext := []byte("hello, world!")
 	ctx := context.Background()
 
-	ed, err := NewAESWithKey(key)
-	assert.NoErrorf(t, err, "NewAESWithKey() error = %v", err)
+	ed := ChaCha20Poly1305(keys.Static(secret))
 
 	ciphertext, err := ed.Encode(ctx, plaintext)
 	assert.NoErrorf(t, err, "Encode() error = %v", err)

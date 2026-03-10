@@ -23,36 +23,16 @@ rotating the secret (i.e. you can take some downtime, or it's a personal project
 business critical).
 
 ```go
-package main
+key := make([]byte, 32)
+_, _ = io.ReadFull(rand.Reader, key)
+keyCodec := ddb.New(keys.Static(key))
 
-import (
-	"context"
-	"crypto/rand"
-	"io"
+// continuationToken is an opaque token that can be returned to user without leaking details about the table.
+continuationToken, _ := keyCodec.Encode(ctx, queryOutputItem.LastEvaluatedKey)
 
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	"github.com/nguyengg/go-aws-commons/opaque-token/ddb"
-)
-
-func main() {
-	ctx := context.Background()
-	cfg, _ := config.LoadDefaultConfig(ctx)
-	client := dynamodb.NewFromConfig(cfg)
-	queryOutputItem, _ := client.Query(ctx, &dynamodb.QueryInput{})
-
-	key := make([]byte, 32)
-	_, _ = io.ReadFull(rand.Reader, key)
-	c, _ := ddb.New(ddb.WithChaCha20Poly1305(key))
-
-	// continuationToken is an opaque token that can be returned to user without leaking details about the table.
-	continuationToken, _ := c.EncodeKey(ctx, queryOutputItem.LastEvaluatedKey)
-
-	// to decrypt the opaque token and use it as exclusive start key in Query or Scan.
-	exclusiveStartKey, _ := c.DecodeToken(ctx, continuationToken)
-	_, _ = client.Query(ctx, &dynamodb.QueryInput{ExclusiveStartKey: exclusiveStartKey})
-}
-
+// to decrypt the opaque token and use it as exclusive start key in Query or Scan.
+exclusiveStartKey, _ := keyCodec.Decode(ctx, continuationToken)
+_, _ = client.Query(ctx, &dynamodb.QueryInput{ExclusiveStartKey: exclusiveStartKey})
 ```
 
 ### Key from AWS Secrets Manager
@@ -61,39 +41,13 @@ AES key is retrieved from AWS Secrets Manager instead. Because each secret in AW
 pair of encoder/decoder will prefix the version Id to the opaque token (since the secret name and AWS account and region
 are not leaked, this should be OK). Be mindful of the cost of calling AWS Secrets Manager for every invocation. If
 running in AWS Lambda functions, you can make use of
-[Key from AWS Parameters and Secrets Lambda Extensio](#key-from-aws-parameters-and-secrets-lambda-extension).
+[Key from AWS Parameters and Secrets Lambda Extension](#key-from-aws-parameters-and-secrets-lambda-extension).
 
 ```go
-package main
-
-import (
-	"context"
-	"crypto/rand"
-	"io"
-
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	"github.com/nguyengg/go-aws-commons/opaque-token"
-)
-
-func main() {
-	ctx := context.Background()
-	cfg, _ := config.LoadDefaultConfig(ctx)
-	client := dynamodb.NewFromConfig(cfg)
-	queryOutputItem, _ := client.Query(ctx, &dynamodb.QueryInput{})
-
-	key := make([]byte, 32)
-	_, _ = io.ReadFull(rand.Reader, key)
-	c, _ := token.NewDynamoDBKeyConverter(token.WithChaCha20Poly1305(key))
-
-	// continuationToken is an opaque token that can be returned to user without leaking details about the table.
-	continuationToken, _ := c.EncodeKey(ctx, queryOutputItem.LastEvaluatedKey)
-
-	// to decrypt the opaque token and use it as exclusive start key in Query or Scan.
-	exclusiveStartKey, _ := c.DecodeToken(ctx, continuationToken)
-	_, _ = client.Query(ctx, &dynamodb.QueryInput{ExclusiveStartKey: exclusiveStartKey})
-}
-
+// keyCodec := ddb.New(keys.Static(key))
+cfg, _ := config.LoadDefaultConfig(ctx)
+client := secretsmanager.NewFromConfig(cfg)
+keyCodec := ddb.New(keys.FromSecretsManager(secretsmanagerClient, "my-secret"))
 ```
 
 ### Key from AWS Parameters and Secrets Lambda Extension
@@ -102,31 +56,8 @@ If running in AWS Lambda, this pair of encoder/decoder can make use of the [AWS 
 instead of directly using Secrets Manager SDK.
 
 ```go
-package main
-
-import (
-	"context"
-
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	"github.com/nguyengg/go-aws-commons/opaque-token"
-)
-
-func main() {
-	ctx := context.Background()
-	cfg, _ := config.LoadDefaultConfig(ctx)
-	client := dynamodb.NewFromConfig(cfg)
-	queryOutputItem, _ := client.Query(ctx, &dynamodb.QueryInput{})
-
-	c, _ := token.NewDynamoDBKeyConverter(token.WithKeyFromLambdaExtensionSecrets("my-secret-id"))
-
-	// continuationToken is an opaque token that can be returned to user without leaking details about the table.
-	// the token includes the plaintext version id so that DecodeToken knows which key to use.
-	continuationToken, _ := c.EncodeKey(ctx, queryOutputItem.LastEvaluatedKey)
-	exclusiveStartKey, _ := c.DecodeToken(ctx, continuationToken)
-	_, _ = client.Query(ctx, &dynamodb.QueryInput{ExclusiveStartKey: exclusiveStartKey})
-}
-
+// keyCodec := ddb.New(keys.Static(key))
+keyCodec := ddb.New(keys.FromLambdaExtensionSecrets("my-secret"))
 ```
 
 ### HMAC and CSRF token generation and verification
@@ -136,38 +67,25 @@ non-zero nonce size for anti-collision purposes, while also including the sessio
 value according to https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html#pseudo-code-for-implementing-hmac-csrf-tokens.
 
 ```go
-package main
+csrf := hmac.New(keys.FromLambdaExtensionSecrets("my-secret-id"))
 
-import (
-	"context"
+// to get a stable hash (same input produces same output), pass 0 for nonce size.
+payload := []byte("hello, world")
+signature, _ := csrf.Sign(ctx, payload, 0)
+ok, _ := csrf.Verify(ctx, signature, payload)
+if !ok {
+    panic("signature verification fails")
+}
 
-	"github.com/nguyengg/go-aws-commons/opaque-token/hmac"
-)
-
-func main() {
-	ctx := context.Background()
-
-	// you can use `hasher.WithKey` or `hasher.WithKeyFromSecretsManager` as well.
-	signer := hmac.New(hmac.WithKeyFromLambdaExtensionSecrets("my-secret-id"))
-
-	// to get a stable hash (same input produces same output), pass 0 for nonce size.
-	payload := []byte("hello, world")
-	signature, _ := signer.Sign(ctx, payload, 0)
-	ok, _ := signer.Verify(ctx, signature, payload)
-	if !ok {
-		panic("signature verification fails")
-	}
-
-	// to use the signature as CSRF token, include session-dependent value according to
-	// https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html#pseudo-code-for-implementing-hmac-csrf-tokens.
-	// don't add a random value in the payload; by passing non-zero nonce size, the generated token will already
-	// include a nonce for anti-collision purposes.
-	payload = []byte("84266fdbd31d4c2c6d0665f7e8380fa3")
-	signature, _ = signer.Sign(ctx, payload, 16)
-	ok, _ = signer.Verify(ctx, signature, payload)
-	if !ok {
-		panic("CSRF verification fails")
-	}
+// to use the signature as CSRF token, include session-dependent value according to
+// https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html#pseudo-code-for-implementing-hmac-csrf-tokens.
+// don't add a random value in the payload; by passing non-zero nonce size, the generated token will already
+// include a nonce for anti-collision purposes.
+payload = []byte("84266fdbd31d4c2c6d0665f7e8380fa3")
+signature, _ = csrf.Sign(ctx, payload, 16)
+ok, _ = csrf.Verify(ctx, signature, payload)
+if !ok {
+    panic("CSRF verification fails")
 }
 
 ```
