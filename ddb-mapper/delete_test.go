@@ -58,8 +58,8 @@ func TestMapper_Delete(t *testing.T) {
 	}
 
 	client := Setup(t, Item{})
-	m, err := mapper.New[Item](func(m *mapper.Mapper[Item]) {
-		m.Client = client
+	m, err := mapper.New[Item](func(cfg *config.Config) {
+		cfg.Client = client
 	})
 	require.NoError(t, err)
 

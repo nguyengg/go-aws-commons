@@ -24,7 +24,7 @@ type Mapper[T any] struct {
 // New creates a new [Mapper] modeling the DynamoDB table that contains items of type T.
 //
 // See [model.TableModel] for details regarding how the struct tags are parsed. A common usage pattern is to create a
-// global Mapper variable in the same package that defines the struct that models the item:
+// global [Mapper] variable in the same package that defines the struct that models the item:
 //
 //	package app
 //

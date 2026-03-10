@@ -52,6 +52,8 @@ package ddb
 
 import (
 	"context"
+	"reflect"
+	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
@@ -73,7 +75,7 @@ import (
 // [DynamoDB CreateTable]: https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_CreateTable.html
 func CreateTable(ctx context.Context, item any, optFns ...func(opts *config.CreateTableOptions)) (err error) {
 	c := internal.ApplyOpts(&config.CreateTableOptions{Config: defaultConfig(ctx)}, optFns...).Resolve()
-	if c.TableModel, err = model.NewForTypeOf(item); err != nil {
+	if c.TableModel, err = newModel(item); err != nil {
 		return err
 	}
 
@@ -89,7 +91,7 @@ func CreateTable(ctx context.Context, item any, optFns ...func(opts *config.Crea
 // [DynamoDB DeleteItem]: https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_DeleteItem.html
 func Delete(ctx context.Context, item any, optFns ...func(opts *config.DeleteOptions)) (_ *dynamodb.DeleteItemOutput, err error) {
 	c := internal.ApplyOpts(&config.DeleteOptions{Config: defaultConfig(ctx)}, optFns...).Resolve()
-	if c.TableModel, err = model.NewForTypeOf(item); err != nil {
+	if c.TableModel, err = newModel(item); err != nil {
 		return nil, err
 	}
 
@@ -107,7 +109,7 @@ func Delete(ctx context.Context, item any, optFns ...func(opts *config.DeleteOpt
 // [DynamoDB GetItem]: https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_GetItem.html
 func Get(ctx context.Context, item any, optFns ...func(opts *config.GetOptions)) (_ *dynamodb.GetItemOutput, err error) {
 	c := internal.ApplyOpts(&config.GetOptions{Config: defaultConfig(ctx)}, optFns...).Resolve()
-	if c.TableModel, err = model.NewForTypeOf(item); err != nil {
+	if c.TableModel, err = newModel(item); err != nil {
 		return nil, err
 	}
 
@@ -135,7 +137,7 @@ func Get(ctx context.Context, item any, optFns ...func(opts *config.GetOptions))
 // [condition expression]: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.OperatorsAndFunctions.html
 func Put(ctx context.Context, item any, optFns ...func(opts *config.PutOptions)) (_ *dynamodb.PutItemOutput, err error) {
 	c := internal.ApplyOpts(&config.PutOptions{Config: defaultConfig(ctx)}, optFns...).Resolve()
-	if c.TableModel, err = model.NewForTypeOf(item); err != nil {
+	if c.TableModel, err = newModel(item); err != nil {
 		return nil, err
 	}
 
@@ -169,7 +171,7 @@ func Put(ctx context.Context, item any, optFns ...func(opts *config.PutOptions))
 // [condition expression]: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.OperatorsAndFunctions.html
 func Update(ctx context.Context, item any, optFns ...func(opts *config.UpdateOptions)) (_ *dynamodb.UpdateItemOutput, err error) {
 	c := internal.ApplyOpts(&config.UpdateOptions{Config: defaultConfig(ctx)}, optFns...).Resolve()
-	if c.TableModel, err = model.NewForTypeOf(item); err != nil {
+	if c.TableModel, err = newModel(item); err != nil {
 		return nil, err
 	}
 
@@ -185,7 +187,7 @@ func Update(ctx context.Context, item any, optFns ...func(opts *config.UpdateOpt
 // [ALL_NEW return values]: https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_UpdateItem.html#DDB-UpdateItem-request-ReturnValues
 func UpdateReturnAllNewValues(ctx context.Context, item any, optFns ...func(opts *config.UpdateOptions)) (_ *dynamodb.UpdateItemOutput, err error) {
 	c := internal.ApplyOpts(&config.UpdateOptions{Config: defaultConfig(ctx)}, optFns...).Resolve()
-	if c.TableModel, err = model.NewForTypeOf(item); err != nil {
+	if c.TableModel, err = newModel(item); err != nil {
 		return nil, err
 	}
 	c.ReturnAllNewValues = true
@@ -194,6 +196,24 @@ func UpdateReturnAllNewValues(ctx context.Context, item any, optFns ...func(opts
 }
 
 var (
-	_ uuid.UUID
-	_ types.BillingMode
+	_     uuid.UUID
+	_     types.BillingMode
+	cache sync.Map
 )
+
+// newModel caches the model for subsequent usages.
+func newModel(i any) (*model.TableModel, error) {
+	t, err := internal.IndirectTypeIsStruct(reflect.TypeOf(i), false)
+	if err == nil {
+		if m, ok := cache.Load(t); ok {
+			return m.(*model.TableModel), nil
+		}
+	}
+
+	m, err := model.New(t)
+	if err == nil {
+		cache.Store(m.StructType, m)
+	}
+
+	return m, err
+}
