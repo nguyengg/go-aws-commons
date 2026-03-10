@@ -6,7 +6,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.56.1
 	github.com/gin-gonic/gin v1.12.0
 	github.com/google/uuid v1.6.0
-	github.com/nguyengg/go-aws-commons/ddb-mapper v0.0.1
+	github.com/nguyengg/go-aws-commons/ddb-mapper v0.0.3
 	github.com/nguyengg/go-aws-commons/opaque-token v0.2.0
 	github.com/nguyengg/init-once v0.0.2
 )

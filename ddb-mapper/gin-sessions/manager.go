@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/config"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/mapper"
+	"github.com/nguyengg/go-aws-commons/ddb-mapper/model"
 	"github.com/nguyengg/go-aws-commons/opaque-token/hmac"
 	ini "github.com/nguyengg/init-once"
 )
@@ -177,7 +178,9 @@ func (m *Manager[T]) Save(c *gin.Context) error {
 	}
 
 	if _, err = m.mapper.Put(c, s.v.(*T), func(opts *config.PutOptions) {
-		opts.Client = m.Client
+		if m.Client != nil {
+			opts.Client = m.Client
+		}
 	}); err != nil {
 		return fmt.Errorf("sessions: save session to DynamoDB error: %w", err)
 	}
@@ -199,7 +202,9 @@ func (m *Manager[T]) Destroy(c *gin.Context) error {
 	}
 
 	if _, err = m.mapper.Delete(c, s.v.(*T), func(opts *config.DeleteOptions) {
-		opts.Client = m.Client
+		if m.Client != nil {
+			opts.Client = m.Client
+		}
 	}); err != nil {
 		return fmt.Errorf("sessions: delete session from DynamoDB error: %w", err)
 	}
@@ -259,7 +264,9 @@ func (m *Manager[T]) load(c *gin.Context) (*session, error) {
 	}
 
 	if output, err := m.mapper.Get(c, s.v.(*T), func(opts *config.GetOptions) {
-		opts.Client = m.Client
+		if m.Client != nil {
+			opts.Client = m.Client
+		}
 	}); err != nil {
 		return nil, fmt.Errorf("sessions: get session from DynamoDB error: %w", err)
 	} else if len(output.Item) == 0 {
@@ -283,6 +290,17 @@ func (m *Manager[T]) regenerate(c *gin.Context, s *session) (*session, error) {
 	sid := m.newSessionId()
 	if err := m.setSid(s, sid); err != nil {
 		return nil, err
+	} else {
+		// we must reset version and timestamps as well.
+		for _, attr := range []*model.Attribute{m.mapper.Version, m.mapper.CreatedTime, m.mapper.ModifiedTime} {
+			if attr == nil {
+				continue
+			}
+
+			if err = attr.Reset(s.v); err != nil {
+				return nil, fmt.Errorf("setting %s to zero value error: %w", m.mapper.Version, err)
+			}
+		}
 	}
 
 	if m.csrf != nil {
@@ -304,13 +322,20 @@ func (m *Manager[T]) setSid(s *session, sid string) (err error) {
 	s.sid = sid
 
 	if s.v != nil {
-		return m.mapper.HashKey.Set(s.v, sid)
+		if err = m.mapper.HashKey.Set(s.v, sid); err != nil {
+			return fmt.Errorf("setting %s error: %w", m.mapper.HashKey, err)
+		}
+
+		return nil
 	}
 
 	n := reflect.New(m.mapper.StructType)
 	s.v = n.Interface()
-	return m.mapper.HashKey.Set(s.v, sid)
+	if err = m.mapper.HashKey.Set(s.v, sid); err != nil {
+		return fmt.Errorf("setting %s error: %w", m.mapper.HashKey, err)
+	}
 
+	return nil
 }
 
 func (m *Manager[T]) writeSessionCookie(c *gin.Context, sid string) {
@@ -367,11 +392,6 @@ func (m *Manager[T]) init() error {
 
 		return nil
 	})
-}
-
-// cfg makes sure every call to mapper uses the Manager.Client instance.
-func (m *Manager[T]) cfg(cfg *config.Config) {
-	cfg.Client = m.Client
 }
 
 // getManager returns the *manager[T] attached to request, or create a default one if none is available.
