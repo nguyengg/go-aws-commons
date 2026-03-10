@@ -22,7 +22,6 @@ func TestDelete(t *testing.T) {
 	}
 
 	client := Setup(t, Item{})
-	config.DefaultClientProvider = &config.StaticClientProvider{Client: client}
 
 	// deleting an item that doesn't exist do nothing.
 	_, err := ddb.Delete(t.Context(), &Item{ID: "tes"})
@@ -58,9 +57,7 @@ func TestMapper_Delete(t *testing.T) {
 	}
 
 	client := Setup(t, Item{})
-	m, err := mapper.New[Item](func(cfg *config.Config) {
-		cfg.Client = client
-	})
+	m, err := mapper.New[Item]()
 	require.NoError(t, err)
 
 	// deleting an item that doesn't exist do nothing.

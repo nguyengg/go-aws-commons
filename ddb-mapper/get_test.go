@@ -6,7 +6,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper"
-	"github.com/nguyengg/go-aws-commons/ddb-mapper/config"
 	. "github.com/nguyengg/go-aws-commons/ddb-mapper/internal/ddb-local-test"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/mapper"
 	"github.com/stretchr/testify/require"
@@ -20,7 +19,6 @@ func TestGet(t *testing.T) {
 	}
 
 	client := Setup(t, Item{})
-	config.DefaultClientProvider = &config.StaticClientProvider{Client: client}
 
 	want := &Item{ID: "test", Data: "i'm a teapot", Version: 3}
 	_, err := client.PutItem(t.Context(), &dynamodb.PutItemInput{
@@ -44,9 +42,7 @@ func TestMapper_Get(t *testing.T) {
 	}
 
 	client := Setup(t, Item{})
-	m, err := mapper.New[Item](func(cfg *config.Config) {
-		cfg.Client = client
-	})
+	m, err := mapper.New[Item]()
 	require.NoError(t, err)
 
 	want := &Item{ID: "test", Data: "i'm a teapot", Version: 3}
