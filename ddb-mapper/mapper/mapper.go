@@ -24,7 +24,7 @@ type Mapper[T any] struct {
 // New creates a new [Mapper] modeling the DynamoDB table that contains items of type T.
 //
 // See [model.TableModel] for details regarding how the struct tags are parsed. A common usage pattern is to create a
-// global Mapper variable in the same package that defines the struct that models the item:
+// global [Mapper] variable in the same package that defines the struct that models the item:
 //
 //	package app
 //
@@ -50,13 +50,13 @@ type Mapper[T any] struct {
 //
 //	item := app.Item{ID: "id"}
 //	app.Mapper.Get(context.Background(), &item)
-func New[T any](optFns ...func(m *Mapper[T])) (m *Mapper[T], err error) {
+func New[T any](optFns ...func(cfg *config.Config)) (m *Mapper[T], err error) {
 	tType := reflect.TypeFor[T]()
 	if tType.Kind() != reflect.Struct {
 		return nil, fmt.Errorf("New[T] requires T to be a struct kind of type, not %s", tType)
 	}
 
-	m = internal.ApplyOpts(&Mapper[T]{}, optFns...)
+	m = &Mapper[T]{Config: *internal.ApplyOpts(&config.Config{}, optFns...)}
 	if m.tableModel, err = model.NewForType[T](); err != nil {
 		return nil, err
 	}
@@ -73,7 +73,7 @@ func New[T any](optFns ...func(m *Mapper[T])) (m *Mapper[T], err error) {
 //	if err != nil {
 //		panic(err)
 //	}
-func NewMustHave[T any](flags model.AttributeModelType, optFns ...func(m *Mapper[T])) (*Mapper[T], error) {
+func NewMustHave[T any](flags model.AttributeModelType, optFns ...func(cfg *config.Config)) (*Mapper[T], error) {
 	m, err := New[T](optFns...)
 	if err == nil {
 		err = model.MustHave(m.tableModel, flags)

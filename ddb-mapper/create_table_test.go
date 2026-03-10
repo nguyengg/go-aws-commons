@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/nguyengg/go-aws-commons/ddb-mapper"
+	"github.com/nguyengg/go-aws-commons/ddb-mapper/config"
 	. "github.com/nguyengg/go-aws-commons/ddb-mapper/internal/ddb-local-test"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/mapper"
 	"github.com/stretchr/testify/require"
@@ -27,8 +28,8 @@ func TestMapper_CreateTable(t *testing.T) {
 		ID string `dynamodbav:"id,hashkey" tableName:"Items"`
 	}
 
-	m, err := mapper.New[Item](func(m *mapper.Mapper[Item]) {
-		m.Client = client
+	m, err := mapper.New[Item](func(cfg *config.Config) {
+		cfg.Client = client
 	})
 	require.NoError(t, err)
 	require.NoError(t, m.CreateTable(t.Context()))

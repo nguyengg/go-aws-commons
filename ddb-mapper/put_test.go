@@ -6,6 +6,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper"
+	"github.com/nguyengg/go-aws-commons/ddb-mapper/config"
 	. "github.com/nguyengg/go-aws-commons/ddb-mapper/internal/ddb-local-test"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/mapper"
 	ddbtypes "github.com/nguyengg/go-aws-commons/ddb-mapper/types"
@@ -88,8 +89,8 @@ func TestMapper_Put(t *testing.T) {
 	}
 
 	client := Setup(t, Item{})
-	m, err := mapper.New[Item](func(m *mapper.Mapper[Item]) {
-		m.Client = client
+	m, err := mapper.New[Item](func(cfg *config.Config) {
+		cfg.Client = client
 	})
 	require.NoError(t, err)
 
