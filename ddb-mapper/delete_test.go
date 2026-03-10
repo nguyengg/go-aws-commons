@@ -22,7 +22,7 @@ func TestDelete(t *testing.T) {
 	}
 
 	client := Setup(t, Item{})
-	ddb.DefaultClientProvider = &ddb.StaticClientProvider{Client: client}
+	config.DefaultClientProvider = &config.StaticClientProvider{Client: client}
 
 	// deleting an item that doesn't exist do nothing.
 	_, err := ddb.Delete(t.Context(), &Item{ID: "tes"})

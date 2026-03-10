@@ -1,11 +1,10 @@
-package ddb
+package config
 
 import (
 	"context"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	configcache "github.com/nguyengg/go-aws-commons/config-cache"
-	"github.com/nguyengg/go-aws-commons/ddb-mapper/config"
 	ini "github.com/nguyengg/init-once"
 )
 
@@ -66,13 +65,4 @@ type StaticClientProvider struct {
 // Provide returns [StaticClientProvider.Client].
 func (p StaticClientProvider) Provide(_ context.Context) (*dynamodb.Client, error) {
 	return p.Client, nil
-}
-
-// defaultConfig creates a [config.Config] with its [config.Config.Client] set to DefaultClientProvider's return value.
-func defaultConfig(ctx context.Context) (cfg config.Config) {
-	if c, err := DefaultClientProvider.Provide(ctx); err == nil {
-		cfg.Client = c
-	}
-
-	return
 }

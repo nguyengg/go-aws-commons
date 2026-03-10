@@ -16,7 +16,7 @@ func TestCreateTable(t *testing.T) {
 	}
 
 	client := Setup(t)
-	ddb.DefaultClientProvider = ddb.StaticClientProvider{Client: client}
+	config.DefaultClientProvider = config.StaticClientProvider{Client: client}
 
 	require.NoError(t, ddb.CreateTable(t.Context(), Item{}))
 }

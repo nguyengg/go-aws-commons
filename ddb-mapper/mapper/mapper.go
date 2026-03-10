@@ -92,7 +92,7 @@ func NewMustHave[T any](flags model.AttributeModelType, optFns ...func(cfg *conf
 //
 // [DynamoDB CreateTable]: https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_CreateTable.html
 func (m *Mapper[T]) CreateTable(ctx context.Context, optFns ...func(opts *config.CreateTableOptions)) error {
-	c := internal.ApplyOpts(&config.CreateTableOptions{Config: m.defaultConfig()}, optFns...).Resolve()
+	c := internal.ApplyOpts(&config.CreateTableOptions{Config: m.defaultConfig(ctx)}, optFns...).Resolve()
 	c.TableModel = m.tableModel
 	return c.Execute(ctx)
 }
@@ -105,7 +105,7 @@ func (m *Mapper[T]) CreateTable(ctx context.Context, optFns ...func(opts *config
 //
 // [DynamoDB DeleteItem]: https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_DeleteItem.html
 func (m *Mapper[T]) Delete(ctx context.Context, item *T, optFns ...func(opts *config.DeleteOptions)) (*dynamodb.DeleteItemOutput, error) {
-	c := internal.ApplyOpts(&config.DeleteOptions{Config: m.defaultConfig()}, optFns...).Resolve()
+	c := internal.ApplyOpts(&config.DeleteOptions{Config: m.defaultConfig(ctx)}, optFns...).Resolve()
 	c.TableModel = m.tableModel
 	return c.Execute(ctx, item)
 }
@@ -120,7 +120,7 @@ func (m *Mapper[T]) Delete(ctx context.Context, item *T, optFns ...func(opts *co
 //
 // [DynamoDB GetItem]: https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_GetItem.html
 func (m *Mapper[T]) Get(ctx context.Context, item *T, optFns ...func(opts *config.GetOptions)) (*dynamodb.GetItemOutput, error) {
-	c := internal.ApplyOpts(&config.GetOptions{Config: m.defaultConfig()}, optFns...).Resolve()
+	c := internal.ApplyOpts(&config.GetOptions{Config: m.defaultConfig(ctx)}, optFns...).Resolve()
 	c.TableModel = m.tableModel
 	return c.Execute(ctx, item)
 }
@@ -142,7 +142,7 @@ func (m *Mapper[T]) Get(ctx context.Context, item *T, optFns ...func(opts *confi
 // [DynamoDB PutItem]: https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_PutItem.html
 // [condition expression]: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.OperatorsAndFunctions.html
 func (m *Mapper[T]) Put(ctx context.Context, item *T, optFns ...func(opts *config.PutOptions)) (*dynamodb.PutItemOutput, error) {
-	c := internal.ApplyOpts(&config.PutOptions{Config: m.defaultConfig()}, optFns...).Resolve()
+	c := internal.ApplyOpts(&config.PutOptions{Config: m.defaultConfig(ctx)}, optFns...).Resolve()
 	c.TableModel = m.tableModel
 	return c.Execute(ctx, item)
 }
@@ -171,7 +171,7 @@ func (m *Mapper[T]) Put(ctx context.Context, item *T, optFns ...func(opts *confi
 // [update expression]: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.UpdateExpressions.html
 // [condition expression]: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.OperatorsAndFunctions.html
 func (m *Mapper[T]) Update(ctx context.Context, item *T, optFns ...func(opts *config.UpdateOptions)) (*dynamodb.UpdateItemOutput, error) {
-	c := internal.ApplyOpts(&config.UpdateOptions{Config: m.defaultConfig()}, optFns...).Resolve()
+	c := internal.ApplyOpts(&config.UpdateOptions{Config: m.defaultConfig(ctx)}, optFns...).Resolve()
 	c.TableModel = m.tableModel
 	return c.Execute(ctx, item)
 }
@@ -181,16 +181,21 @@ func (m *Mapper[T]) Update(ctx context.Context, item *T, optFns ...func(opts *co
 //
 // [ALL_NEW return values]: https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_UpdateItem.html#DDB-UpdateItem-request-ReturnValues
 func (m *Mapper[T]) UpdateReturnAllNewValues(ctx context.Context, item *T, optFns ...func(opts *config.UpdateOptions)) (*dynamodb.UpdateItemOutput, error) {
-	c := internal.ApplyOpts(&config.UpdateOptions{Config: m.defaultConfig()}, optFns...).Resolve()
+	c := internal.ApplyOpts(&config.UpdateOptions{Config: m.defaultConfig(ctx)}, optFns...).Resolve()
 	c.TableModel = m.tableModel
 	c.ReturnAllNewValues = true
 	return c.Execute(ctx, item)
 }
 
 // defaultConfig creates a [config.Config] that is copied from the same settings in Mapper.
-func (m *Mapper[T]) defaultConfig() config.Config {
+func (m *Mapper[T]) defaultConfig(ctx context.Context) config.Config {
+	client := m.Client
+	if client == nil {
+		client, _ = config.DefaultClientProvider.Provide(ctx)
+	}
+
 	return config.Config{
-		Client:         m.Client,
+		Client:         client,
 		Encoder:        m.Encoder,
 		Decoder:        m.Decoder,
 		VersionUpdater: m.VersionUpdater,

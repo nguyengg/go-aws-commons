@@ -20,7 +20,7 @@ func TestGet(t *testing.T) {
 	}
 
 	client := Setup(t, Item{})
-	ddb.DefaultClientProvider = &ddb.StaticClientProvider{Client: client}
+	config.DefaultClientProvider = &config.StaticClientProvider{Client: client}
 
 	want := &Item{ID: "test", Data: "i'm a teapot", Version: 3}
 	_, err := client.PutItem(t.Context(), &dynamodb.PutItemInput{

@@ -25,7 +25,7 @@ func Test_Put(t *testing.T) {
 	}
 
 	client := Setup(t, Item{})
-	ddb.DefaultClientProvider = &ddb.StaticClientProvider{Client: client}
+	config.DefaultClientProvider = &config.StaticClientProvider{Client: client}
 
 	item := &Item{ID: "test", Data: "my-data"}
 	_, err := ddb.Put(t.Context(), item)
