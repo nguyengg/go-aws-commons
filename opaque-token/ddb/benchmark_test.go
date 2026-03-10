@@ -1,4 +1,4 @@
-package token
+package ddb
 
 import (
 	"context"
@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/nguyengg/go-aws-commons/opaque-token/cipher"
+	"github.com/nguyengg/go-aws-commons/opaque-token/keys"
 )
 
 func BenchmarkAESWithStaticKey_EncodeDecode(b *testing.B) {
@@ -19,18 +21,18 @@ func BenchmarkAESWithStaticKey_EncodeDecode(b *testing.B) {
 	}
 
 	for range b.N {
-		key := make([]byte, 32)
-		if _, err := io.ReadFull(r, key); err != nil {
+		secret := make([]byte, 32)
+		if _, err := io.ReadFull(r, secret); err != nil {
 			panic(err)
 		}
 
-		c, _ := NewDynamoDBKeyConverter(WithAES(key))
-		token, err := c.EncodeKey(context.Background(), item)
+		c := &KeyCodec{Codec: cipher.AES(keys.Static(secret))}
+		token, err := c.Encode(context.Background(), item)
 		if err != nil {
 			panic(err)
 		}
 
-		if _, err = c.DecodeToken(context.Background(), token); err != nil {
+		if _, err = c.Decode(context.Background(), token); err != nil {
 			panic(err)
 		}
 	}
@@ -46,18 +48,18 @@ func BenchmarkChaCha20Poly1305WithStaticKey_EncodeDecode(b *testing.B) {
 	}
 
 	for range b.N {
-		key := make([]byte, 32)
-		if _, err := io.ReadFull(r, key); err != nil {
+		secret := make([]byte, 32)
+		if _, err := io.ReadFull(r, secret); err != nil {
 			panic(err)
 		}
 
-		c, err := NewDynamoDBKeyConverter(WithChaCha20Poly1305(key))
-		token, err := c.EncodeKey(context.Background(), item)
+		c := &KeyCodec{Codec: cipher.ChaCha20Poly1305(keys.Static(secret))}
+		token, err := c.Encode(context.Background(), item)
 		if err != nil {
 			panic(err)
 		}
 
-		if _, err = c.DecodeToken(context.Background(), token); err != nil {
+		if _, err = c.Decode(context.Background(), token); err != nil {
 			panic(err)
 		}
 	}

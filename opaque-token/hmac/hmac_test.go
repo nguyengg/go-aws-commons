@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"testing"
 
+	"github.com/nguyengg/go-aws-commons/opaque-token/keys"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -21,12 +22,12 @@ func fixedRand(src []byte) func([]byte) error {
 }
 
 func TestHasher_SignStable(t *testing.T) {
-	key := []byte("onvIzKsW6Ec2Q5VqS49zrNlmvrvibh8e")
+	secret := []byte("onvIzKsW6Ec2Q5VqS49zrNlmvrvibh8e")
 	payload := []byte("hello, world!")
 	expected, _ := base64.RawStdEncoding.DecodeString("APUBqmRxODn8AoAHhLl7lKnajZltrndrmF/5u6YeMlic")
 	ctx := context.Background()
 
-	signer := New(WithKey(key))
+	signer := New(keys.Static(secret))
 
 	actual, err := signer.Sign(ctx, payload, 0)
 	assert.NoErrorf(t, err, "Sign() error = %v", err)
@@ -38,12 +39,12 @@ func TestHasher_SignStable(t *testing.T) {
 }
 
 func TestHasher_SignStableWithSha1(t *testing.T) {
-	key := []byte("onvIzKsW6Ec2Q5VqS49zrNlmvrvibh8e")
+	secret := []byte("onvIzKsW6Ec2Q5VqS49zrNlmvrvibh8e")
 	payload := []byte("hello, world!")
 	expected, _ := base64.RawStdEncoding.DecodeString("AMMAm3TBNtWG6YlbfiYkyu8v/Wyn")
 	ctx := context.Background()
 
-	signer := New(WithKey(key), WithHash(sha1.New))
+	signer := New(keys.Static(secret), WithHash(sha1.New))
 
 	actual, err := signer.Sign(ctx, payload, 0)
 	assert.NoErrorf(t, err, "Sign() error = %v", err)
@@ -55,11 +56,11 @@ func TestHasher_SignStableWithSha1(t *testing.T) {
 }
 
 func TestHasher_SignWithNonce(t *testing.T) {
-	key := []byte("onvIzKsW6Ec2Q5VqS49zrNlmvrvibh8e")
+	secret := []byte("onvIzKsW6Ec2Q5VqS49zrNlmvrvibh8e")
 	payload := []byte("hello, world!")
 	ctx := context.Background()
 
-	signer := New(WithKey(key))
+	signer := New(keys.Static(secret))
 
 	signature, err := signer.Sign(ctx, payload, 16)
 	assert.NoErrorf(t, err, "Sign() error = %v", err)
@@ -75,16 +76,16 @@ func TestHasher_SignWithNonce(t *testing.T) {
 }
 
 func TestHasher_SignWithNonceAndFixedRand(t *testing.T) {
-	key := []byte("onvIzKsW6Ec2Q5VqS49zrNlmvrvibh8e")
+	secret := []byte("onvIzKsW6Ec2Q5VqS49zrNlmvrvibh8e")
 	payload := []byte("hello, world!")
 	nonce := []byte("123456")
 	expected, _ := base64.RawStdEncoding.DecodeString("AgYxMjM0NTYAjKJl8724bPXGxlIyc+0+toZyuGcadrENOD6DFIuoPP4")
 	ctx := context.Background()
 
-	signer := &lev{
-		getKey: func(_ context.Context, _ *string) ([]byte, *string, error) {
-			return key, nil, nil
-		},
+	signer := &engine{
+		keyProvider: keys.ProviderFunc(func(_ context.Context, _ *string) ([]byte, *string, error) {
+			return secret, nil, nil
+		}),
 		hashProvider: sha256.New,
 		rand:         fixedRand(nonce),
 	}
