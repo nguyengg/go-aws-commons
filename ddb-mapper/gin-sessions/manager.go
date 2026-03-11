@@ -115,7 +115,7 @@ func (m *Manager[T]) Get(c *gin.Context) (*T, error) {
 	if s != nil {
 		return s.v.(*T), nil
 	}
-	if s, err = m.regenerate(c, nil); err != nil {
+	if s, err = m.doRegenerate(c, nil); err != nil {
 		return nil, err
 	}
 
@@ -150,7 +150,7 @@ func (m *Manager[T]) Regenerate(c *gin.Context) (*T, error) {
 	if err != nil {
 		return nil, err
 	}
-	if s, err = m.regenerate(c, s); err != nil {
+	if s, err = m.doRegenerate(c, s); err != nil {
 		return nil, err
 	}
 
@@ -172,7 +172,7 @@ func (m *Manager[T]) Save(c *gin.Context) error {
 		return err
 	}
 	if s == nil {
-		if s, err = m.regenerate(c, nil); err != nil {
+		if s, err = m.doRegenerate(c, nil); err != nil {
 			return err
 		}
 	}
@@ -278,10 +278,10 @@ func (m *Manager[T]) load(c *gin.Context) (*session, error) {
 	return s, nil
 }
 
-// regenerate implements Manager.Regenerate.
+// doRegenerate implements Manager.Regenerate.
 //
 // The s argument, if non-nil, means there exists a session that should be copied.
-func (m *Manager[T]) regenerate(c *gin.Context, s *session) (*session, error) {
+func (m *Manager[T]) doRegenerate(c *gin.Context, s *session) (*session, error) {
 	if s == nil {
 		s = &session{}
 		s.set(c, m.sessionIdCookieName)
@@ -394,21 +394,50 @@ func (m *Manager[T]) init() error {
 	})
 }
 
-// getManager returns the *manager[T] attached to request, or create a default one if none is available.
+func getManager(c *gin.Context, name ...string) (manager, error) {
+	var n string
+	if len(name) != 0 {
+		n = name[0]
+	} else {
+		n = DefaultSessionIdCookieName
+	}
+
+	if v, ok := c.Get(managerKeyPrefix + n); ok {
+		return v.(manager), nil
+	}
+
+	panic(fmt.Sprintf(`no Manager.Middleware found with name="%s"`, n))
+}
+
+// manager is a typeless [Manager] that getManager returns.
 //
-// Package-level accessors will use this to retrieve or create a *manager[T] for use.
-func getManager[T any](c *gin.Context, name string) (*Manager[T], error) {
-	if v, ok := c.Get(managerKeyPrefix + name); ok {
-		return v.(*Manager[T]), nil
-	}
+// TODO invert so that the [Manager.Get] calls [manager.get] instead of vice versa.
+type manager interface {
+	get(c *gin.Context) (any, error)
+	tryGet(c *gin.Context) (any, error)
+	regenerate(c *gin.Context) (any, error)
+	save(c *gin.Context) error
+	destroy(c *gin.Context) error
+}
 
-	m, err := New[T](func(cfg *Config) {
-		cfg.SessionIdCookieName = name
-	})
-	if err != nil {
-		return nil, err
-	}
+var _ manager = &Manager[any]{}
 
-	c.Set(managerKeyPrefix+name, m)
-	return m, nil
+func (m *Manager[T]) get(c *gin.Context) (any, error) {
+	return m.Get(c)
+}
+
+func (m *Manager[T]) tryGet(c *gin.Context) (any, error) {
+	return m.TryGet(c)
+}
+
+func (m *Manager[T]) regenerate(c *gin.Context) (any, error) {
+	return m.Regenerate(c)
+}
+
+func (m *Manager[T]) save(c *gin.Context) error {
+	return m.Save(c)
+}
+
+func (m *Manager[T]) destroy(c *gin.Context) error {
+	return m.Destroy(c)
 }

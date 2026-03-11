@@ -1,21 +1,22 @@
-// Package sessions is a bring-your-own-DynamoDB-struct sessions management tightly integrated with [github.com/nguyengg/go-aws-commons/ddb-mapper].
+// Package sessions is a bring-your-own-DynamoDB-struct sessions management tightly integrated with
+// [github.com/nguyengg/go-aws-commons/ddb-mapper].
 //
 // CSRF generation and validation integration is also supported out-of-the-box with
 // [github.com/nguyengg/go-aws-commons/opaque-token/hmac].
 //
 // There are two ways to use this package. First is by constructing a manager with [New], then accessing the session
-// struct by way of the [Manager] interface. This is the preferred and more type-safe usage pattern.
+// struct by way of [Manager]. This is the preferred and more type-safe usage pattern.
 //
 // TODO add usage.
 //
 // Second is by using the package-level methods [Get], [Regenerate], [Save], and [Destroy] counterparts to the [Manager]
-// methods . The second usage pattern is useful if you're writing middlewares or handlers that do not have access to
-// a [Manager]. However, to customise session settings in this mode, you should still create a [Manager] then add
-// [Manager.Middleware] to the handler chain. Without this, the package-level methods will assume all
-// default settings without the ability to generate CSRF tokens.
+// methods. This usage pattern is useful if you're writing middlewares or handlers that do not have direct access to a
+// [Manager]. However, you must still have attached a [Manager.Middleware] to the handler chain; failure to do so will
+// result in a panic similar to [github.com/gin-contrib/sessions] `sessions.Default`.
 //
 // [github.com/nguyengg/go-aws-commons/ddb-mapper]: https://pkg.go.dev/github.com/nguyengg/go-aws-commons/ddb-mapper
 // [github.com/nguyengg/go-aws-commons/opaque-token/hmac]: https://pkg.go.dev/github.com/nguyengg/go-aws-commons/opaque-token/hmac
+// [github.com/gin-contrib/sessions]: https://pkg.go.dev/github.com/gin-contrib/sessions
 package sessions
 
 import (
@@ -25,104 +26,75 @@ import (
 	"github.com/google/uuid"
 )
 
-// Get calls [Manager.Get] on the [Manager.Middleware] (or a default one) attached to the request.
+// Get calls [Manager.Get] on the [Manager.Middleware] attached to the request.
 //
-// The (first) name argument is the cookie name that stores the session Id, similar to the [Config.SessionIdCookieName]
-// passed to [New].
-func Get[T any](c *gin.Context, name ...string) (*T, error) {
-	var n string
-	if len(name) != 0 {
-		n = name[0]
-	} else {
-		n = DefaultSessionIdCookieName
-	}
-
-	m, err := getManager[T](c, n)
+// The single variadic argument is the cookie name that stores the session Id (see [Config.SessionIdCookieName]). Panics
+// if no [Manager.Middleware] with the same name has been attached to the handler chain.
+//
+// Get returns pointer to struct type T that was used as the type argument for [New].
+func Get(c *gin.Context, name ...string) (any, error) {
+	m, err := getManager(c, name...)
 	if err != nil {
 		return nil, err
 	}
 
-	return m.Get(c)
+	return m.get(c)
 }
 
-// TryGet calls [Manager.TryGet] on the [Manager.Middleware] (or a default one) attached to the request.
+// TryGet calls [Manager.TryGet] on the [Manager.Middleware] attached to the request.
 //
-// The (first) name argument is the cookie name that stores the session Id, similar to the [Config.SessionIdCookieName]
-// passed to [New]. Defaults to [DefaultSessionIdCookieName].
-func TryGet[T any](c *gin.Context, name ...string) (*T, error) {
-	var n string
-	if len(name) != 0 {
-		n = name[0]
-	} else {
-		n = DefaultSessionIdCookieName
-	}
-
-	m, err := getManager[T](c, n)
+// The single variadic argument is the cookie name that stores the session Id (see [Config.SessionIdCookieName]). Panics
+// if no [Manager.Middleware] with the same name has been attached to the handler chain.
+//
+// TryGet returns pointer to struct type T that was used as the type argument for [New].
+func TryGet(c *gin.Context, name ...string) (any, error) {
+	m, err := getManager(c, name...)
 	if err != nil {
 		return nil, err
 	}
 
-	return m.TryGet(c)
+	return m.tryGet(c)
 }
 
-// Regenerate calls [Manager.Regenerate] on the [Manager.Middleware] (or a default one) attached to the request.
+// Regenerate calls [Manager.Regenerate] on the [Manager.Middleware] attached to the request.
 //
-// The (first) name argument is the cookie name that stores the session Id, similar to the [Config.SessionIdCookieName]
-// passed to [New]. Defaults to [DefaultSessionIdCookieName].
-func Regenerate[T any](c *gin.Context, name ...string) (*T, error) {
-	var n string
-	if len(name) != 0 {
-		n = name[0]
-	} else {
-		n = DefaultSessionIdCookieName
-	}
-
-	m, err := getManager[T](c, n)
+// The single variadic argument is the cookie name that stores the session Id (see [Config.SessionIdCookieName]). Panics
+// if no [Manager.Middleware] with the same name has been attached to the handler chain.
+//
+// Regenerate returns pointer to struct type T that was used as the type argument for [New].
+func Regenerate(c *gin.Context, name ...string) (any, error) {
+	m, err := getManager(c, name...)
 	if err != nil {
 		return nil, err
 	}
 
-	return m.Regenerate(c)
+	return m.regenerate(c)
 }
 
 // Save calls [Manager.Save] on the [Manager.Middleware] (or a default one) attached to the request.
 //
-// The (first) name argument is the cookie name that stores the session Id, similar to the [Config.SessionIdCookieName]
-// passed to [New]. Defaults to [DefaultSessionIdCookieName].
-func Save[T any](c *gin.Context, name ...string) error {
-	var n string
-	if len(name) != 0 {
-		n = name[0]
-	} else {
-		n = DefaultSessionIdCookieName
-	}
-
-	m, err := getManager[T](c, n)
+// The single variadic argument is the cookie name that stores the session Id (see [Config.SessionIdCookieName]). Panics
+// if no [Manager.Middleware] with the same name has been attached to the handler chain.
+func Save(c *gin.Context, name ...string) error {
+	m, err := getManager(c, name...)
 	if err != nil {
 		return err
 	}
 
-	return m.Save(c)
+	return m.save(c)
 }
 
-// Destroy calls [Manager.Destroy] on the [Manager.Middleware] (or a default one) attached to the request.
+// Destroy calls [Manager.Destroy] on the [Manager.Middleware] attached to the request.
 //
-// The (first) name argument is the cookie name that stores the session Id, similar to the [Config.SessionIdCookieName]
-// passed to [New]. Defaults to [DefaultSessionIdCookieName].
-func Destroy[T any](c *gin.Context, name ...string) error {
-	var n string
-	if len(name) != 0 {
-		n = name[0]
-	} else {
-		n = DefaultSessionIdCookieName
-	}
-
-	m, err := getManager[T](c, n)
+// The single variadic argument is the cookie name that stores the session Id (see [Config.SessionIdCookieName]). Panics
+// if no [Manager.Middleware] with the same name has been attached to the handler chain.
+func Destroy(c *gin.Context, name ...string) error {
+	m, err := getManager(c, name...)
 	if err != nil {
 		return err
 	}
 
-	return m.Destroy(c)
+	return m.destroy(c)
 }
 
 // DefaultNewSessionId creates a new UUID and returns its raw-URL-encoded content.

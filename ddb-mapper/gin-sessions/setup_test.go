@@ -6,6 +6,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/gin-gonic/gin"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/config"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/gin-sessions"
@@ -34,6 +35,8 @@ func setup(t *testing.T, debug ...bool) (*sessions.Manager[Session], *dynamodb.C
 
 	m, err := sessions.New[Session]()
 	require.NoError(t, err)
+
+	gin.SetMode(gin.TestMode)
 
 	return m, client
 }
