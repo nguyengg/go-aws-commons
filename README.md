@@ -6,12 +6,12 @@ Henry's Golang multi-module workspace containing various libraries to make using
 
 Available as their own module:
 * [config-cache](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/config-cache) (`configcache`): single AWS config cache to make using package-level methods easier.
-* [ddb](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/ddb): DynamoDB goodies to add optimistic locking and auto-generated timestamps via struct tags.
+* [ddb-mapper](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/ddb-mapper): add optimistic locking and auto-generated timestamps via struct tags.
+  * [gin-sessions](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/ddb-mapper/gin-sessions): replaces [github.com/gin-contrib/sessions](https://pkg.go.dev/github.com/gin-contrib/sessions) with [ddb-mapper](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/ddb-mapper) integration.
 * [gin-caching-response-headers](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/gin-caching-response-headers) (`cachingheaders`): sets caching response headers (Cache-Control, ETag, and/or Last-Modified) on the gin response.
 * [gin-json-abort](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/gin-json-abort) (`abort`): provides package-level methods to help abort a gin request using JSON response as well as logging.
 * [gin-metrics](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/gin-metrics) (`ginmetrics`): replaces gin.Logger and gin.Recovery with metrics.Metrics integration.
 * [gin-preconditions](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/gin-preconditions) (`preconditions`): provides helper methods to parse and compare conditional headers such as If-Match, If-None-Match, If-Modified-Since, and If-Unmodified-Since.
-* [gin-sessions-dynamodb](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/gin-sessions-dynamodb) (`sessions`): replaces [github.com/gin-contrib/sessions](https://pkg.go.dev/github.com/gin-contrib/sessions) with [ddb](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/ddb) integration.
 * [gin-s3-proxy](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/gin-s3-proxy) (`proxy`): a very simple Gin middleware acting as an S3 proxy.
 * [lambda](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/lambda): Lambda handler wrappers with sensible defaults and metrics integration.
   * [function-url](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/lambda/function-url) (`functionurl`): provides Lambda wrappers for Function URL gin handlers in either BUFFERED or STREAMING mode.
