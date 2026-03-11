@@ -78,7 +78,7 @@ func FromForm(name ...string) Source {
 
 // DoubleSubmit validates that all the given CSRF sources must be available AND match.
 //
-// Useful if you use double-submit cookie pattern. This method replaces the existing [Options.Sources].
+// Useful if you use [signed double-submit cookie]. This method replaces the existing [Options.Sources].
 //
 // Usage:
 //
@@ -87,6 +87,8 @@ func FromForm(name ...string) Source {
 //	// this will require that request has identical CSRF token from both cookie and header.
 //	// the token will also be validated against the session Id as well.
 //	r.Use(m.ValidateCSRF(csrf.DoubleSubmit(csrf.FromCookie(), csrf.FromHeader())))
+//
+// [signed double-submit cookie]: https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html#signed-double-submit-cookie-recommended
 func DoubleSubmit(source Source, more ...Source) func(opts *Options) {
 	return func(opts *Options) {
 		opts.Sources = []Source{func(c *gin.Context) (token []byte, err error) {

@@ -36,7 +36,7 @@ type Options struct {
 
 	// MethodFilter controls which HTTP methods receive CSRF validation.
 	//
-	// By default, only DELETE, PATCH, POST, and PUT are subject.
+	// By default, only DELETE, PATCH, POST, and PUT are subject to CSRF validation.
 	MethodFilter func(string) bool
 
 	// AbortHandler is invoked when the CSRF tokens are invalid.
@@ -45,7 +45,8 @@ type Options struct {
 	AbortHandler func(*gin.Context)
 }
 
-func defaultMethodFilter(method string) bool {
+// DefaultMethodFilter is the default value for [Options.MethodFilter] that allows only DELETE, PATCH, POST, and PUT.
+func DefaultMethodFilter(method string) bool {
 	switch method {
 	case http.MethodDelete, http.MethodPatch, http.MethodPost, http.MethodPut:
 		return true

@@ -8,33 +8,36 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/gin-sessions/csrf"
-	"github.com/nguyengg/go-aws-commons/opaque-token/hmac"
 )
 
-// WithCSRF configures [New] to use CSRF generation with the given signer and verifier.
+// DisableCSRF disables CSRF generation and validation when passed to [New].
 //
-// The same [hmac.Engine] will be used for CSRF validation as well. See [github.com/nguyengg/go-aws-commons/opaque-token/hmac]
-// for various options on constructing the [hmac.Engine].
-//
-// [github.com/nguyengg/go-aws-commons/opaque-token/hmac]: https://pkg.go.dev/github.com/nguyengg/go-aws-commons/opaque-token/hmac
-func WithCSRF(csrf hmac.Engine) func(cfg *Config) {
+// [Manager.ValidateCSRF] will panic if DisableCSRF was passed to [New] to create the [Manager].
+func DisableCSRF() func(cfg *Config) {
 	return func(cfg *Config) {
-		cfg.csrf = csrf
+		cfg.csrfDisabled = true
 	}
 }
 
-// ValidateCSRF creates a middleware to validate the CSRF tokens that were created by the same [hmac.Engine] passed to
-// [New] by way of [WithCSRF].
+// ValidateCSRF creates a middleware to validate the CSRF tokens.
 //
-// Panics if you did not pass [WithCSRF], unable to return a middleware.
+// Panics if [New] was called [DisableCSRF].
+//
+// Usage:
+//
+//	r := gin.Default()
+//	m, _ := sessions.New[Session]()
+//	// this will require that request has identical CSRF token from both cookie and header.
+//	// the token will also be validated against the session Id as well.
+//	r.Use(m.ValidateCSRF(csrf.DoubleSubmit(csrf.FromCookie(), csrf.FromHeader())))
 func (m *Manager[T]) ValidateCSRF(optFns ...func(opts *csrf.Options)) gin.HandlerFunc {
-	if m.csrf == nil {
-		panic("New was not passed WithCSRF to assign a non-nil hmac.Engine")
+	if m.csrfDisabled {
+		panic("DisableCSRF was used to create sessions.Manager")
 	}
 
 	opts := &csrf.Options{
 		Sources:      []csrf.Source{csrf.FromCookie(), csrf.FromForm(), csrf.FromHeader()},
-		MethodFilter: defaultMethodFilter,
+		MethodFilter: csrf.DefaultMethodFilter,
 	}
 	for _, fn := range optFns {
 		fn(opts)
@@ -44,7 +47,7 @@ func (m *Manager[T]) ValidateCSRF(optFns ...func(opts *csrf.Options)) gin.Handle
 
 	methodFilter := opts.MethodFilter
 	if methodFilter == nil {
-		methodFilter = defaultMethodFilter
+		methodFilter = csrf.DefaultMethodFilter
 	}
 
 	abortHandler := opts.AbortHandler
@@ -105,14 +108,5 @@ func (m *Manager[T]) ValidateCSRF(optFns ...func(opts *csrf.Options)) gin.Handle
 		}
 
 		c.Next()
-	}
-}
-
-func defaultMethodFilter(method string) bool {
-	switch method {
-	case http.MethodDelete, http.MethodPatch, http.MethodPost, http.MethodPut:
-		return true
-	default:
-		return false
 	}
 }
