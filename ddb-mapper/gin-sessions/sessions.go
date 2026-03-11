@@ -81,7 +81,7 @@ func Save(c *gin.Context, name ...string) error {
 		return err
 	}
 
-	return m.save(c)
+	return m.Save(c)
 }
 
 // Destroy calls [Manager.Destroy] on the [Manager.Middleware] attached to the request.
@@ -94,7 +94,7 @@ func Destroy(c *gin.Context, name ...string) error {
 		return err
 	}
 
-	return m.destroy(c)
+	return m.Destroy(c)
 }
 
 // DefaultNewSessionId creates a new UUID and returns its raw-URL-encoded content.

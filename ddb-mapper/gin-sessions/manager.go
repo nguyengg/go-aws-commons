@@ -38,6 +38,17 @@ type Manager[T any] struct {
 	once ini.SuccessOnce
 }
 
+// manager is used by package-level methods which are not type-aware.
+//
+// [Manager] implements this interface; its exported methods delegate to these unexpored methods.
+type manager interface {
+	get(c *gin.Context) (any, error)
+	tryGet(c *gin.Context) (any, error)
+	regenerate(c *gin.Context) (any, error)
+	Save(c *gin.Context) error
+	Destroy(c *gin.Context) error
+}
+
 // New creates a new [Manager] of type T.
 //
 // Struct T must have these struct tags:
@@ -102,6 +113,15 @@ func New[T any](optFns ...func(cfg *Config)) (*Manager[T], error) {
 // If [Get] creates a new session, it will automatically issue Set-Cookie response header for the new session Id and
 // (optionally) the new CSRF token.
 func (m *Manager[T]) Get(c *gin.Context) (*T, error) {
+	v, err := m.get(c)
+	if err != nil {
+		return nil, err
+	}
+
+	return v.(*T), nil
+}
+
+func (m *Manager[T]) get(c *gin.Context) (any, error) {
 	if err := m.init(); err != nil {
 		return nil, err
 	}
@@ -124,6 +144,15 @@ func (m *Manager[T]) Get(c *gin.Context) (*T, error) {
 
 // TryGet is a variant of [Get] that does not automatically create a new session.
 func (m *Manager[T]) TryGet(c *gin.Context) (*T, error) {
+	v, err := m.tryGet(c)
+	if err != nil || v == nil {
+		return nil, err
+	}
+
+	return v.(*T), nil
+}
+
+func (m *Manager[T]) tryGet(c *gin.Context) (any, error) {
 	if err := m.init(); err != nil {
 		return nil, err
 	}
@@ -141,6 +170,15 @@ func (m *Manager[T]) TryGet(c *gin.Context) (*T, error) {
 // [Get] and [Regenerate] do not automatically save new session to DynamoDB. You must explicitly call [Save] to do so.
 // [Regenerate] always issues Set-Cookie response header for the new session Id and (optionally) the new CSRF token.
 func (m *Manager[T]) Regenerate(c *gin.Context) (*T, error) {
+	v, err := m.regenerate(c)
+	if err != nil {
+		return nil, err
+	}
+
+	return v.(*T), nil
+}
+
+func (m *Manager[T]) regenerate(c *gin.Context) (any, error) {
 	if err := m.init(); err != nil {
 		return nil, err
 	}
@@ -409,35 +447,4 @@ func getManager(c *gin.Context, name ...string) (manager, error) {
 	panic(fmt.Sprintf(`no Manager.Middleware found with name="%s"`, n))
 }
 
-// manager is a typeless [Manager] that getManager returns.
-//
-// TODO invert so that the [Manager.Get] calls [manager.get] instead of vice versa.
-type manager interface {
-	get(c *gin.Context) (any, error)
-	tryGet(c *gin.Context) (any, error)
-	regenerate(c *gin.Context) (any, error)
-	save(c *gin.Context) error
-	destroy(c *gin.Context) error
-}
-
 var _ manager = &Manager[any]{}
-
-func (m *Manager[T]) get(c *gin.Context) (any, error) {
-	return m.Get(c)
-}
-
-func (m *Manager[T]) tryGet(c *gin.Context) (any, error) {
-	return m.TryGet(c)
-}
-
-func (m *Manager[T]) regenerate(c *gin.Context) (any, error) {
-	return m.Regenerate(c)
-}
-
-func (m *Manager[T]) save(c *gin.Context) error {
-	return m.Save(c)
-}
-
-func (m *Manager[T]) destroy(c *gin.Context) error {
-	return m.Destroy(c)
-}
