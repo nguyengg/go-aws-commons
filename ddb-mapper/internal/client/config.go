@@ -8,7 +8,7 @@ import (
 	configcache "github.com/nguyengg/go-aws-commons/config-cache"
 )
 
-// Config is clone of [ddb.config.Config] to break cyclic import.
+// Config is clone of [ddb/config.Config] to break cyclic import.
 type Config struct {
 	Client         *dynamodb.Client
 	Encoder        *attributevalue.Encoder
@@ -19,6 +19,7 @@ type Config struct {
 // init makes sure all the nil fields in [Config] that have default values are non-nil.
 func (c *Config) init(ctx context.Context) error {
 	if c.Client == nil {
+		// TODO refactor [ddb/config.DefaultClientProvider] into [ddb/client] so that it can be used here.
 		cfg, err := configcache.Get(ctx)
 		if err != nil {
 			return err

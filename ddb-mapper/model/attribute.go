@@ -35,11 +35,23 @@ func (attr Attribute) Get(item any) (any, error) {
 
 // Set updates the value of the field in the given item.
 //
-// Unlike Get which is read-only, Set will modify the item argument; item must be a struct pointer as a result.
+// The item argument which must be addressable in order for Set to modify its struct field.
 func (attr Attribute) Set(item, value any) error {
 	v, err := attr.get(item, false)
 	if err == nil {
 		v.Set(reflect.ValueOf(value))
+	}
+
+	return err
+}
+
+// Reset updates the value of the field to its zero value in the given item.
+//
+// The item argument which must be addressable in order for Reset to modify its struct field.
+func (attr Attribute) Reset(item any) error {
+	v, err := attr.get(item, true)
+	if err == nil {
+		v.Set(reflect.Zero(v.Type()))
 	}
 
 	return err

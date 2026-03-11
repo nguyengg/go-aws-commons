@@ -56,7 +56,7 @@ func (p *defaultClientProvider) Provide(ctx context.Context) (*dynamodb.Client, 
 //
 //	cfg, _ := config.LoadDefaultConfig(context.Background())
 //	client := dynamodb.NewFromConfig(cfg)
-//	config.DefaultClientProvider = &StaticClientProvider{Client: dynamodb.NewFromConfig(cfg)}
+//	config.DefaultClientProvider = &StaticClientProvider{Client: client}
 type StaticClientProvider struct {
 	// Client is returned by Provide.
 	Client *dynamodb.Client

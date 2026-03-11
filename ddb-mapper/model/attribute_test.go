@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAttribute_GetAndSet(t *testing.T) {
+func TestAttribute_GetSetReset(t *testing.T) {
 	type Item struct {
 		ID string `dynamodbav:"id,hashkey" tableName:"Items"`
 	}
@@ -20,13 +20,16 @@ func TestAttribute_GetAndSet(t *testing.T) {
 	// Get with struct type
 	v, err := m.HashKey.Get(item)
 	require.NoError(t, err)
-	assert.Equal(t, "", v)
+	require.Equal(t, "", v)
 	require.NoError(t, m.HashKey.Set(&item, "my-id")) // Set must be on pointer
+	require.Equal(t, "my-id", item.ID)
 
 	// Get with struct pointer type
 	v, err = m.HashKey.Get(&item)
 	require.NoError(t, err)
 	assert.Equal(t, "my-id", v)
+	require.NoError(t, m.HashKey.Reset(&item))
+	require.Equal(t, "", item.ID)
 
 	// Get with pointer to struct pointer type
 	pointerToItem := &Item{"new-id"}
@@ -39,4 +42,5 @@ func TestAttribute_GetAndSet(t *testing.T) {
 	v, err = m.HashKey.Get(pointerToItem)
 	require.NoError(t, err)
 	assert.Equal(t, "another-id", v)
+
 }
