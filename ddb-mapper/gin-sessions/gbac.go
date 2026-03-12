@@ -9,6 +9,10 @@ import (
 )
 
 // EnableGBAC enables group-based access control (GBAC) functionality.
+//
+// EnableGBAC should only be called once; subsequent calls will replace the function to extract groups.
+//
+// [Manager.Authorize] will panic if Authorize has not been called.
 func (m *Manager[T]) EnableGBAC(getGroupsFn gbac.GetGroupsFunc, optFns ...func(opts *gbac.Options)) *Manager[T] {
 	if getGroupsFn == nil {
 		panic("getGroupsFn is nil")
@@ -23,29 +27,37 @@ func (m *Manager[T]) EnableGBAC(getGroupsFn gbac.GetGroupsFunc, optFns ...func(o
 	return m
 }
 
-// WithGBAC enables group-based access control (GBAC) functionality when passed to [New].
-//
-// The getGroupsFn argument must be given in order to extract the groups associated with the current session's user.
-// If there is no current session, or if the current session has no authenticated user, the function must return false.
-//
-// [Manager.Authorize] will panic if WithGBAC wasn't passed to [New].
-func WithGBAC(getGroupsFn gbac.GetGroupsFunc, optFns ...func(opts *gbac.Options)) func(cfg *Config) {
-	if getGroupsFn == nil {
-		panic("getGroupsFn is nil")
-	}
-
-	opts := &gbac.Options{}
-	for _, fn := range optFns {
-		fn(opts)
-	}
-	return func(cfg *Config) {
-		cfg.getGroupsFn = getGroupsFn
-		cfg.groupsOptions = *opts
-	}
-}
-
-// Authorize creates a middleware to validate that the session is authenticated, and user's groups satisfy the given
+// Authorize creates a middleware to validate that the session is authenticated and user's groups satisfy the given
 // rules.
+//
+// Panics if [Manager.EnableGBAC] has not been called.
+//
+// Usage:
+//
+//	type User struct {
+//		Sub    string   `dynamodbav:"sub,string" tablename:"Users"`
+//		Groups []string `dynamodbav:"groups,stringset"`
+//	}
+//
+//	type Session struct {
+//		ID   string `dynamodbav:"id,hashkey" tablename:"Sessions"`
+//		User *User  `dynamodbav:"user"`
+//	}
+//
+//	m, _ := sessions.New[Session]()
+//
+//	r := gin.Default()
+//	r.PUT("/resource/:id",
+//		m.EnableGBAC(func(c *gin.Context) (authenticated bool, groups []string) {
+//			switch s, err := m.Get(c); {
+//			case err != nil:
+//				_ = c.AbortWithError(500, err)
+//			case s.User == nil:
+//				return false, nil
+//			default:
+//				return true, s.User.Groups
+//			}
+//		}).Authorize(gbac.AllOf("resource_admin")))
 func (m *Manager[T]) Authorize(rule gbac.Rule, more ...gbac.Rule) gin.HandlerFunc {
 	if m.getGroupsFn == nil {
 		panic("WithGBAC was not used to create sessions.Manager")
@@ -73,17 +85,15 @@ func (m *Manager[T]) Authorize(rule gbac.Rule, more ...gbac.Rule) gin.HandlerFun
 	}
 
 	return func(c *gin.Context) {
-		authenticated, gs := m.getGroupsFn(c)
-		if !authenticated {
+		switch authenticated, gs := m.getGroupsFn(c); {
+		case c.IsAborted():
+			// return
+		case !authenticated:
 			unauthorisedHandler(c)
-			return
-		}
-
-		if !rules.Test(gs) {
+		case !rules.Test(gs):
 			forbiddenHandler(c)
-			return
+		default:
+			c.Next()
 		}
-
-		c.Next()
 	}
 }

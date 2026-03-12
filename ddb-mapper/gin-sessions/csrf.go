@@ -14,7 +14,8 @@ import (
 
 // EnableCSRF enables CSRF generation and validation using the given key.
 //
-// Subsequent calls will replace the key and thus will invalidate previous tokens.
+// EnableCSRF should only be called once; subsequent calls will replace the key provider, invalidating tokens created
+// with inaccessible keys.
 //
 // [Manager.ValidateCSRF] will panic if EnableCSRF has not been called.
 func (m *Manager[T]) EnableCSRF(key keys.Provider, optFns ...func(opts *csrf.Options)) *Manager[T] {
@@ -28,6 +29,7 @@ func (m *Manager[T]) EnableCSRF(key keys.Provider, optFns ...func(opts *csrf.Opt
 	}
 
 	m.csrfSignVerifier = hmac.New(key)
+
 	m.csrfOpts = opts
 	if m.csrfOpts.CookieName == "" {
 		m.csrfOpts.CookieName = csrf.DefaultCookieName
@@ -53,11 +55,7 @@ func (m *Manager[T]) EnableCSRF(key keys.Provider, optFns ...func(opts *csrf.Opt
 
 // ValidateCSRF creates a middleware to validate the CSRF tokens.
 //
-// Panics if [Manager.EnableCSRF] had not been called. Only a subset of the options that were passed to
-// [Manager.EnableCSRF] can be overridden here:
-//   - [csrf.Options.Sources]
-//   - [csrf.Options.MethodFilter]
-//   - [csrf.Options.ForbiddenHandler]
+// Panics if [Manager.EnableCSRF] has not been called.
 //
 // Usage:
 //
