@@ -2,7 +2,9 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/nguyengg/go-aws-commons.svg)](https://pkg.go.dev/github.com/nguyengg/go-aws-commons)
 
-Henry's Golang multi-module workspace containing various libraries to make using AWS just a little bit more fun.
+My multi-module workspace to make working with AWS services easier. See also:
+* [github.com/nguyengg/go-to](https://pkg.go.dev/github.com/nguyengg/go-to): mixed bag of Go utility packages.
+* [github.com/nguyengg/gin-seng](https://pkg.go.dev/github.com/nguyengg/gin-seng): Gin middlewares and helper methods.
 
 Available as their own module:
 * [config-cache](https://pkg.go.dev/github.com/nguyengg/go-aws-commons/config-cache) (`configcache`): single AWS config cache to make using package-level methods easier.
