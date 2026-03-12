@@ -13,12 +13,12 @@ type Options struct {
 
 	// UnauthorizedHandler is invoked when the session is unauthenticated.
 	//
-	// By default, the request chain is aborted with http.StatusUnauthorized with no additional messaging.
+	// By default, the request chain is aborted with http.StatusUnauthorized.
 	UnauthorizedHandler func(c *gin.Context)
 
 	// ForbiddenHandler is invoked when the user's groups do not pass membership rules.
 	//
-	// By default, the request chain is aborted with http.StatusForbidden with no additional messaging.
+	// By default, the request chain is aborted with http.StatusForbidden.
 	ForbiddenHandler func(c *gin.Context)
 }
 
@@ -26,3 +26,11 @@ type Options struct {
 func DefaultMethodFilter(_ string) bool {
 	return true
 }
+
+// GetGroupsFunc determines whether the request is authenticated with valid groups for testing membership.
+//
+// If there is no session associated with the request, GetGroupsFunc will not be called and the request is treated as
+// unauthenticated. GetGroupsFunc must return (false, nil) if any of these conditions are met:
+//  1. The current session has no authenticated user.
+//  2. There was an error retrieving the user's groups, in which case GetGroupsFunc should also abort the request.
+type GetGroupsFunc func(c *gin.Context) (authenticated bool, groups []string)

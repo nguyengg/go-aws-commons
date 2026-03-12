@@ -1,7 +1,7 @@
 package sessions_test
 
 import (
-	"log"
+	"crypto/rand"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -10,11 +10,15 @@ import (
 	"github.com/gin-gonic/gin"
 	sessions "github.com/nguyengg/go-aws-commons/ddb-mapper/gin-sessions"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/gin-sessions/csrf"
+	"github.com/nguyengg/go-aws-commons/opaque-token/keys"
 	"github.com/stretchr/testify/require"
 )
 
 func TestManager_ValidateCSRF(t *testing.T) {
+	key := make([]byte, 32)
+	_, _ = rand.Read(key)
 	m, _ := setup(t)
+	m.EnableCSRF(keys.Static(key))
 
 	r := gin.New()
 
@@ -64,7 +68,6 @@ func TestManager_ValidateCSRF(t *testing.T) {
 	})
 
 	// since we have CSRF csrfToken in both cookie and header, the request gets 200.
-	log.Printf("%s, %s", sid, csrfToken)
 	req, _ = http.NewRequest("POST", "/", nil)
 	req.AddCookie(&http.Cookie{
 		Name:  csrf.DefaultCookieName,

@@ -27,6 +27,17 @@ const (
 
 // Options customises the CSRF middleware.
 type Options struct {
+	// CookieName is the name of the cookie that contains CSRF token.
+	//
+	// Defaults to DefaultCookieName.
+	CookieName string
+
+	// CookieOptions can be used to modify the session cookie prior to setting the Set-Cookie response header.
+	//
+	// Invalid settings will cause the cookie to be silent dropped so be very careful with this. Most likely you just
+	// want to change the [http.Cookie.MaxAge] to something more reasonable.
+	CookieOptions func(c *http.Cookie)
+
 	// Sources contains the various optional ways to retrieve the CSRF token from a request.
 	//
 	// By default, this value is filled out with FromCookie, FromHeader, and FromForm. Only one of the sources needs to
@@ -39,10 +50,10 @@ type Options struct {
 	// By default, only DELETE, PATCH, POST, and PUT are subject to CSRF validation.
 	MethodFilter func(string) bool
 
-	// AbortHandler is invoked when the CSRF tokens are invalid.
+	// ForbiddenHandler is invoked when the CSRF tokens are invalid.
 	//
-	// By default, the request chain is aborted with http.StatusForbidden.
-	AbortHandler func(*gin.Context)
+	// By default, the request is aborted with http.StatusForbidden.
+	ForbiddenHandler func(c *gin.Context)
 }
 
 // DefaultMethodFilter is the default value for [Options.MethodFilter] that allows only DELETE, PATCH, POST, and PUT.

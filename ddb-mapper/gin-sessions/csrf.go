@@ -8,49 +8,95 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/gin-sessions/csrf"
+	"github.com/nguyengg/go-aws-commons/opaque-token/hmac"
+	"github.com/nguyengg/go-aws-commons/opaque-token/keys"
 )
 
-// DisableCSRF disables CSRF generation and validation when passed to [New].
+// EnableCSRF enables CSRF generation and validation using the given key.
 //
-// [Manager.ValidateCSRF] will panic if DisableCSRF was passed to [New] to create the [Manager].
-func DisableCSRF() func(cfg *Config) {
-	return func(cfg *Config) {
-		cfg.csrfDisabled = true
+// Subsequent calls will replace the key and thus will invalidate previous tokens.
+//
+// [Manager.ValidateCSRF] will panic if EnableCSRF has not been called.
+func (m *Manager[T]) EnableCSRF(key keys.Provider, optFns ...func(opts *csrf.Options)) *Manager[T] {
+	if key == nil {
+		panic("key is nil")
 	}
+
+	opts := csrf.Options{}
+	for _, fn := range optFns {
+		fn(&opts)
+	}
+
+	m.csrfSignVerifier = hmac.New(key)
+	m.csrfOpts = opts
+	if m.csrfOpts.CookieName == "" {
+		m.csrfOpts.CookieName = csrf.DefaultCookieName
+	}
+	if len(m.csrfOpts.Sources) == 0 {
+		m.csrfOpts.Sources = []csrf.Source{
+			csrf.FromCookie(opts.CookieName),
+			csrf.FromHeader(opts.CookieName),
+			csrf.FromForm(opts.CookieName),
+		}
+	}
+	if m.csrfOpts.MethodFilter == nil {
+		m.csrfOpts.MethodFilter = csrf.DefaultMethodFilter
+	}
+	if m.csrfOpts.ForbiddenHandler == nil {
+		m.csrfOpts.ForbiddenHandler = func(c *gin.Context) {
+			c.AbortWithStatus(http.StatusForbidden)
+		}
+	}
+
+	return m
 }
 
 // ValidateCSRF creates a middleware to validate the CSRF tokens.
 //
-// Panics if [New] was called [DisableCSRF].
+// Panics if [Manager.EnableCSRF] had not been called. Only a subset of the options that were passed to
+// [Manager.EnableCSRF] can be overridden here:
+//   - [csrf.Options.Sources]
+//   - [csrf.Options.MethodFilter]
+//   - [csrf.Options.ForbiddenHandler]
 //
 // Usage:
 //
-//	r := gin.Default()
+//	key := make([]byte, 32)
+//	_, _ = rand.Read(key)
+//
 //	m, _ := sessions.New[Session]()
-//	// this will require that request has identical CSRF token from both cookie and header.
-//	// the token will also be validated against the session Id as well.
-//	r.Use(m.ValidateCSRF(csrf.DoubleSubmit(csrf.FromCookie(), csrf.FromHeader())))
+//	m.EnableCSRF(keys.Static(key)) // use something else in production, don't use static key
+//
+//	r := gin.Default()
+//	r.PUT("/resource/:id",
+//		// validate signed double-submit cookie.
+//		m.ValidateCSRF(csrfSignVerifier.DoubleSubmit(csrfSignVerifier.FromCookie(), csrfSignVerifier.FromHeader())),
+//		func(c *gin.Context) { /* if this handler is run, CSRF validation passes. */ })
 func (m *Manager[T]) ValidateCSRF(optFns ...func(opts *csrf.Options)) gin.HandlerFunc {
-	if m.csrfDisabled {
-		panic("DisableCSRF was used to create sessions.Manager")
+	if m.csrfSignVerifier == nil {
+		panic("EnableCSRF must be called prior to ValidateCSRF")
 	}
 
-	opts := &csrf.Options{
-		Sources:      []csrf.Source{csrf.FromCookie(), csrf.FromForm(), csrf.FromHeader()},
-		MethodFilter: csrf.DefaultMethodFilter,
-	}
+	opts := m.csrfOpts
 	for _, fn := range optFns {
-		fn(opts)
+		fn(&opts)
 	}
 
 	sources := slices.Clone(opts.Sources)
+	if len(sources) == 0 {
+		sources = []csrf.Source{
+			csrf.FromCookie(opts.CookieName),
+			csrf.FromHeader(opts.CookieName),
+			csrf.FromForm(opts.CookieName),
+		}
+	}
 
 	methodFilter := opts.MethodFilter
 	if methodFilter == nil {
 		methodFilter = csrf.DefaultMethodFilter
 	}
 
-	abortHandler := opts.AbortHandler
+	abortHandler := opts.ForbiddenHandler
 	if abortHandler == nil {
 		abortHandler = func(c *gin.Context) { c.AbortWithStatus(http.StatusForbidden) }
 	}
@@ -80,7 +126,7 @@ func (m *Manager[T]) ValidateCSRF(optFns ...func(opts *csrf.Options)) gin.Handle
 
 			if len(token) != 0 {
 				if subtle.ConstantTimeCompare(t, token) != 1 {
-					_ = c.Error(fmt.Errorf("conflicting csrf tokens from sources"))
+					_ = c.Error(fmt.Errorf("conflicting csrfSignVerifier tokens from sources"))
 					abortHandler(c)
 					return
 				}
@@ -90,19 +136,19 @@ func (m *Manager[T]) ValidateCSRF(optFns ...func(opts *csrf.Options)) gin.Handle
 		}
 
 		if len(token) == 0 {
-			_ = c.Error(fmt.Errorf("no csrf token available"))
+			_ = c.Error(fmt.Errorf("no csrfSignVerifier token available"))
 			abortHandler(c)
 			return
 		}
 
-		ok, err := m.csrf.Verify(c, token, []byte(sid))
+		ok, err := m.csrfSignVerifier.Verify(c, token, []byte(sid))
 		if err != nil {
-			_ = c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("validate csrf token error: %w", err))
+			_ = c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("validate csrfSignVerifier token error: %w", err))
 			return
 		}
 
 		if !ok {
-			_ = c.Error(fmt.Errorf("mismatched csrf token"))
+			_ = c.Error(fmt.Errorf("mismatched csrfSignVerifier token"))
 			abortHandler(c)
 			return
 		}

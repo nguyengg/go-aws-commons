@@ -30,6 +30,20 @@ func AllOf(group string, more ...string) Rule {
 	}
 }
 
+func OneOf(first, second string, more ...string) Rule {
+	return func(r *Rules) {
+		groups := map[string]bool{first: true, second: true}
+		for _, group := range more {
+			groups[group] = true
+		}
+
+		r.OneOf = &Node{
+			Groups: groups,
+			Next:   r.OneOf,
+		}
+	}
+}
+
 // WithUnauthorizedHandler can be used to customise the response when the session has no user.
 //
 // By default, [gin.Context.AbortWithStatus] is called passing http.StatusUnauthorized.
@@ -45,20 +59,6 @@ func WithUnauthorizedHandler(f gin.HandlerFunc) Rule {
 func WithForbiddenHandler(f gin.HandlerFunc) Rule {
 	return func(opts *Rules) {
 		opts.ForbiddenHandler = f
-	}
-}
-
-func OneOf(first, second string, more ...string) Rule {
-	return func(r *Rules) {
-		groups := map[string]bool{first: true, second: true}
-		for _, group := range more {
-			groups[group] = true
-		}
-
-		r.OneOf = &Node{
-			Groups: groups,
-			Next:   r.OneOf,
-		}
 	}
 }
 

@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/gin-gonic/gin"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/config"
+	"github.com/nguyengg/go-aws-commons/ddb-mapper/gin-sessions/csrf"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/gin-sessions/gbac"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/mapper"
 	"github.com/nguyengg/go-aws-commons/ddb-mapper/model"
@@ -19,7 +20,7 @@ import (
 
 // Manager manages sessions of struct type T.
 //
-// The zero-value is ready for use with CSRF generation and validation using a randomly generated key.
+// The zero-value is ready for use.
 type Manager[T any] struct {
 	// Client is the client for making DynamoDB service calls.
 	Client *dynamodb.Client
@@ -30,14 +31,11 @@ type Manager[T any] struct {
 	sessionCookieOptions func(c *http.Cookie)
 	newSessionId         func() string
 
-	csrfDisabled      bool
-	csrfCookieName    string
-	csrfCookieOptions func(c *http.Cookie)
-	csrf              hmac.Engine
-	csrfValue         string
+	csrfSignVerifier hmac.Engine
+	csrfOpts         csrf.Options
 
-	extractGroups func(c *gin.Context) (authenticated bool, groups gbac.Groups)
-	groupsOptions gbac.Options
+	getGroupsFn gbac.GetGroupsFunc
+	groupsOpts  gbac.Options
 
 	// once guards init.
 	once ini.SuccessOnce
@@ -73,7 +71,6 @@ func New[T any](optFns ...func(cfg *Config)) (*Manager[T], error) {
 	cfg := Config{
 		SessionIdCookieName: DefaultSessionIdCookieName,
 		NewSessionId:        DefaultNewSessionId,
-		CSRFCookieName:      DefaultCSRFCookieName,
 	}
 	for _, fn := range optFns {
 		fn(&cfg)
@@ -83,14 +80,6 @@ func New[T any](optFns ...func(cfg *Config)) (*Manager[T], error) {
 	}
 	if cfg.NewSessionId == nil {
 		cfg.NewSessionId = DefaultNewSessionId
-	}
-	if !cfg.csrfDisabled {
-		if cfg.CSRFCookieName == "" {
-			cfg.CSRFCookieName = DefaultCSRFCookieName
-		}
-		if cfg.CSRFKeyProvider == nil {
-			cfg.CSRFKeyProvider = &defaultKeyProvider{}
-		}
 	}
 
 	m, err := mapper.New[T](cfg.mapperOpts...)
@@ -108,9 +97,6 @@ func New[T any](optFns ...func(cfg *Config)) (*Manager[T], error) {
 		sessionIdCookieName:  cfg.SessionIdCookieName,
 		sessionCookieOptions: cfg.SessionCookieOptions,
 		newSessionId:         cfg.NewSessionId,
-		csrfCookieName:       cfg.CSRFCookieName,
-		csrfCookieOptions:    cfg.CSRFCookieOptions,
-		csrf:                 hmac.New(cfg.CSRFKeyProvider),
 	}, nil
 }
 
@@ -289,9 +275,9 @@ func (m *Manager[T]) Destroy(c *gin.Context) error {
 		SameSite: http.SameSiteDefaultMode,
 	})
 
-	if !m.csrfDisabled {
+	if m.csrfSignVerifier != nil {
 		http.SetCookie(c.Writer, &http.Cookie{
-			Name:     m.csrfCookieName,
+			Name:     m.csrfOpts.CookieName,
 			Value:    "",
 			MaxAge:   -1,
 			Secure:   true,
@@ -369,14 +355,13 @@ func (m *Manager[T]) doRegenerate(c *gin.Context, s *session) (*session, error) 
 		}
 	}
 
-	if !m.csrfDisabled {
-		token, err := m.csrf.Sign(c, []byte(s.sid), 16)
+	if m.csrfSignVerifier != nil {
+		token, err := m.csrfSignVerifier.Sign(c, []byte(s.sid), 16)
 		if err != nil {
 			return nil, fmt.Errorf("sessions: create CSRF token error: %w", err)
 		}
 
-		m.csrfValue = base64.RawURLEncoding.EncodeToString(token)
-		m.writeCSRFCookie(c)
+		m.writeCSRFCookie(c, base64.RawURLEncoding.EncodeToString(token))
 	}
 
 	m.writeSessionCookie(c, sid)
@@ -421,18 +406,18 @@ func (m *Manager[T]) writeSessionCookie(c *gin.Context, sid string) {
 	http.SetCookie(c.Writer, cookie)
 }
 
-func (m *Manager[T]) writeCSRFCookie(c *gin.Context) {
+func (m *Manager[T]) writeCSRFCookie(c *gin.Context, value string) {
 	cookie := &http.Cookie{
-		Name:     m.csrfCookieName,
-		Value:    m.csrfValue,
+		Name:     m.csrfOpts.CookieName,
+		Value:    value,
 		MaxAge:   0,
 		Secure:   true,
 		HttpOnly: false,
 		SameSite: http.SameSiteDefaultMode,
 	}
 
-	if m.csrfCookieOptions != nil {
-		m.csrfCookieOptions(cookie)
+	if m.csrfOpts.CookieOptions != nil {
+		m.csrfOpts.CookieOptions(cookie)
 	}
 
 	http.SetCookie(c.Writer, cookie)
@@ -453,12 +438,9 @@ func (m *Manager[T]) init() error {
 			m.newSessionId = DefaultNewSessionId
 		}
 
-		if !m.csrfDisabled {
-			if m.csrfCookieName == "" {
-				m.csrfCookieName = DefaultCSRFCookieName
-			}
-			if m.csrf == nil {
-				m.csrf = hmac.New(&defaultKeyProvider{})
+		if m.csrfSignVerifier != nil {
+			if m.csrfOpts.CookieName == "" {
+				m.csrfOpts.CookieName = csrf.DefaultCookieName
 			}
 		}
 
