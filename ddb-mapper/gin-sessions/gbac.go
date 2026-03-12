@@ -13,7 +13,7 @@ import (
 // The extractGroups argument must be given in order to extract the groups associated with the current session's user.
 // If there is no current session, or if the current session has no authenticated user, the function must return false.
 //
-// [Manager.RequireGroups] will panic if WithGBAC wasn't passed to [New].
+// [Manager.Authorize] will panic if WithGBAC wasn't passed to [New].
 func WithGBAC(extractGroups func(c *gin.Context) (authenticated bool, groups gbac.Groups), optFns ...func(opts *gbac.Options)) func(cfg *Config) {
 	if extractGroups == nil {
 		panic("extractGroups is nil")
@@ -29,9 +29,9 @@ func WithGBAC(extractGroups func(c *gin.Context) (authenticated bool, groups gba
 	}
 }
 
-// RequireGroups creates a middleware to validate that the session is authenticated, and user's groups satisfy the given
+// Authorize creates a middleware to validate that the session is authenticated, and user's groups satisfy the given
 // rules.
-func (m *Manager[T]) RequireGroups(rule gbac.Rule, more ...gbac.Rule) gin.HandlerFunc {
+func (m *Manager[T]) Authorize(rule gbac.Rule, more ...gbac.Rule) gin.HandlerFunc {
 	if m.extractGroups == nil {
 		panic("WithGBAC was not used to create sessions.Manager")
 	}

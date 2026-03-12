@@ -4,7 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Options customises the RequireGroups middleware.
+// Options customises the Authorize middleware.
 type Options struct {
 	// MethodFilter controls which HTTP methods are subject to this middleware.
 	//

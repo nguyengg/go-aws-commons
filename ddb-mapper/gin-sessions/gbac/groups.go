@@ -3,7 +3,10 @@
 // For all intents and purposes, groups and roles are interchangeable in this package.
 package gbac
 
-import "github.com/nguyengg/go-aws-commons/ddb-mapper/gin-sessions/internal/groups"
+import (
+	"github.com/gin-gonic/gin"
+	"github.com/nguyengg/go-aws-commons/ddb-mapper/gin-sessions/internal/groups"
+)
 
 // Groups is a string list, preferably a string set.
 type Groups []string
@@ -34,4 +37,18 @@ func AllOf(group string, more ...string) Rule {
 // OneOf adds a rule that the user must belong to at least one of the groups specified here.
 func OneOf(first, second string, more ...string) Rule {
 	return groups.OneOf(first, second, more...)
+}
+
+// WithUnauthorizedHandler can be used to customise the response when the session has no user.
+//
+// By default, [gin.Context.AbortWithStatus] is called passing http.StatusUnauthorized.
+func WithUnauthorizedHandler(f gin.HandlerFunc) Rule {
+	return groups.WithUnauthorizedHandler(f)
+}
+
+// WithForbiddenHandler can be used to customise the response when the session's user's groups do not satisfy the rules.
+//
+// By default, [gin.Context.AbortWithStatus] is called passing http.StatusForbidden.
+func WithForbiddenHandler(f gin.HandlerFunc) Rule {
+	return groups.WithForbiddenHandler(f)
 }
