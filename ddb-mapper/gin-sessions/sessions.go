@@ -20,10 +20,7 @@
 package sessions
 
 import (
-	"encoding/base64"
-
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 // Get calls [Manager.Get] on the [Manager.Middleware] attached to the request.
@@ -95,10 +92,4 @@ func Destroy(c *gin.Context, name ...string) error {
 	}
 
 	return m.Destroy(c)
-}
-
-// DefaultNewSessionId creates a new UUID and returns its raw-URL-encoded content.
-func DefaultNewSessionId() string {
-	data := uuid.New()
-	return base64.RawURLEncoding.EncodeToString(data[:])
 }
